@@ -2,14 +2,14 @@
   "version": 2,
   "routes": [
     {
-      "source": "/api/:path*",
-      "destination": "https://pointboard-fj2c.vercel.app/api/:path*"
+      "src": "/api/(.*)",
+      "dest": "https://pointboard-fj2c.vercel.app/api/$1"
     },
     {
       "handle": "filesystem"
     },
     {
-      "src": "/.*",
+      "src": "/(.*)",
       "dest": "/index.html"
     }
   ]
