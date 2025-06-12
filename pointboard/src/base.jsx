@@ -265,7 +265,7 @@ function Base({ children }) {
               }}
             >
               <img
-                src="src\assets\Logo.svg"
+                src="/images/Logo.svg"
                 alt="PointBoard Logo"
                 style={{
                   height: "40px",
