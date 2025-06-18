@@ -1,4 +1,4 @@
-const Order = require("../models/order.model");
+const Order = require("../../src/models/order.model");
 const Transaction = require("../models/transaction.model");
 
 // Middleware to verify SePay IP
