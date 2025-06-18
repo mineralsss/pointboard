@@ -1,5 +1,5 @@
 const path = require('path');
-const Order = require('../models/order.model');
+const { Order} = require('../models');
 
 exports.createOrder = async (req, res) => {
   try {
