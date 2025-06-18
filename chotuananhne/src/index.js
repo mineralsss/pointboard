@@ -6,7 +6,7 @@ const morgan = require("morgan");
 const mongoose = require("mongoose");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const routes = require("./routes/index");
 
 // Connect to MongoDB
 mongoose
@@ -29,7 +29,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("combined")); //theo dõi log GET, POST...
 // Routes
-app.use("/api/v1", require("./routes/index"));
+app.use("/api/v1", routes);
 
 app.get("/", (req, res) => {
   res.json({ message: "Server is running!" });
@@ -52,9 +52,13 @@ app.use("*notFound", (req, res) => {
   res.status(404).json({ error: "Route not found" });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
-
+// For Vercel: export the app as a handler
 module.exports = app;
+
+// If running locally (not on Vercel), start the server
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
