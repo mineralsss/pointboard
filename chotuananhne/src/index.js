@@ -29,7 +29,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("combined")); //theo dõi log GET, POST...
 // Routes
-app.use("/api/v1", routes);
+app.use("/server", routes);
 
 app.get("/", (req, res) => {
   res.json({ message: "Server is running!" });

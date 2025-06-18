@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const API_BASE_URL = "https://pointboard-fj2c.vercel.app/api/v1";
+// Updated to use /server path instead of /api to avoid Vercel reserved paths
+const API_BASE_URL = "https://pointboard-fj2c.vercel.app/server/v1";
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -122,6 +123,41 @@ class ApiService {
 
   getAccessToken() {
     return localStorage.getItem("accessToken");
+  }
+
+  // Add method for handling payment verification
+  async verifyPayment(orderRef) {
+    try {
+      const response = await apiClient.get(`/payments/verify/${orderRef}`);
+      return response.data;
+    } catch (error) {
+      console.error("Payment verification error:", error);
+      throw new Error("Failed to verify payment status");
+    }
+  }
+
+  // Add method for creating orders
+  async createOrder(orderData) {
+    try {
+      const response = await apiClient.post("/orders", orderData);
+      return response.data;
+    } catch (error) {
+      console.error("Order creation error:", error);
+      const errorMessage =
+        error.response?.data?.message || error.message || "Failed to create order";
+      throw new Error(errorMessage);
+    }
+  }
+
+  // Add method for fetching order status
+  async getOrderStatus(orderRef) {
+    try {
+      const response = await apiClient.get(`/orders/payment-status/${orderRef}`);
+      return response.data;
+    } catch (error) {
+      console.error("Order status fetch error:", error);
+      throw new Error("Failed to get order status");
+    }
   }
 }
 

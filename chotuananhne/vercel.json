@@ -1,14 +1,9 @@
 {
   "version": 2,
-  "routes": [
-    {
-      "src": "/webhook/sepay",
-      "dest": "/api/webhook/sepay.js"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    }
+  "rewrites": [
+    { "source": "/webhook/sepay", "destination": "/api/webhook/sepay" },
+    { "source": "/server/(.*)", "destination": "/api/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {
