@@ -1,4 +1,5 @@
-const Order = require("./../models/order.model");
+const path = require('path');
+const Order = require(path.join(__dirname, '../models/order.model'));
 const Transaction = require("./../models/transaction.model");
 
 // Middleware to verify SePay IP
