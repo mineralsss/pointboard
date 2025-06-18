@@ -6,6 +6,7 @@ import ClickAwayListener from '@mui/material/ClickAwayListener';
 import Base from './base';
 import Aboutus from './Aboutus';
 import Guide from './Guide';
+import ProductsContent from './ProductsContent';
 import instagramIconSrc from '/images/instagram.png';  // You'll need to add this image to your project
 import facebookIconSrc from '/images/facebook.png';
 
@@ -142,52 +143,6 @@ function MainMenu() {
   };
 
   // Placeholder components for other tabs
-  const ProductsContent = () => (
-    <Box sx={{ backgroundColor: '#491E6C', borderRadius: '16px', p: 3 }}>
-      {/* Featured Games Carousel/Banner */}
-      <Box sx={{ mb: 6 }}>
-        <Typography 
-          variant="h4" 
-          sx={{ 
-            mb: 3, 
-            fontFamily: "'Raleway', sans-serif",
-            fontWeight: 700,
-            textAlign: 'center',
-            color: 'white'
-          }}
-        >
-          Sản phẩm nổi bật
-        </Typography>
-        
-        <Grid container spacing={3}>
-          {/* Your product cards here */}
-          <Grid item xs={12} md={4}>
-            <Card sx={{ 
-              height: '100%',
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              borderRadius: '14px',
-            }}>
-              <CardContent>
-                <Typography variant="h6" sx={{ color: 'white' }}>Board Game 1</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          {/* More product cards */}
-        </Grid>
-      </Box>
-    </Box>
-  );
-
-  const GuidesContent = () => (
-    <Box sx={{ p: 3, backgroundColor: '#491E6C', borderRadius: '16px', color: 'white' }}>
-      <Typography variant="h4" sx={{ mb: 3, fontFamily: "'Raleway', sans-serif" }}>
-        Hướng dẫn
-      </Typography>
-      <Typography paragraph>
-        Các hướng dẫn chi tiết về cách chơi board game...
-      </Typography>
-    </Box>
-  );
 
   const PromotionsContent = () => (
     <Box sx={{ p: 3, backgroundColor: '#491E6C', borderRadius: '16px', color: 'white' }}>

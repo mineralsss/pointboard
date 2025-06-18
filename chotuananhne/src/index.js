@@ -29,7 +29,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("combined")); //theo dõi log GET, POST...
 // Routes
-app.use("/api/v1", require("./routes"));
+app.use("/api/v1", require("./routes/index"));
 
 app.get("/", (req, res) => {
   res.json({ message: "Server is running!" });
@@ -42,7 +42,13 @@ app.use((err, req, res, next) => {
 });
 
 // 404 handler
-app.use((req, res) => {
+app.use("/{*any}", (req, res) => {
+  console.log(`Route not found: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({ error: "Route not found" });
+});
+
+// Put this AFTER all your other routes, just before starting the server
+app.use("*notFound", (req, res) => {
   res.status(404).json({ error: "Route not found" });
 });
 
