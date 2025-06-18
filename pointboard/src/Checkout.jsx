@@ -47,8 +47,8 @@ export default function Checkout() {
   
   // Sample cart items - replace with your actual cart data
   const cartItems = [
-    { id: 1, name: 'Product 1', price: 199000, quantity: 2, image: './images/cards.png' },
-    { id: 2, name: 'Product 2', price: 299000, quantity: 1, image: './images/cards.png' }
+    { id: 1, name: 'Product 1', price: 1000, quantity: 1, image: './images/cards.png' },
+    { id: 2, name: 'Product 2', price: 1000, quantity: 1, image: './images/cards.png' }
   ];
   
   const handleNext = () => {
@@ -81,7 +81,7 @@ export default function Checkout() {
   };
   
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shipping = 30000;
+  const shipping = 3000;
   const tax = subtotal * 0.1; // 10% tax
   const total = subtotal + shipping + tax;
   
