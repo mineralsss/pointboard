@@ -13,7 +13,7 @@
     },
     {
       "src": "/webhook/sepay",
-      "dest": "sepay.js"
+      "dest": "src/sepay.js"
     }
   ]
 }
