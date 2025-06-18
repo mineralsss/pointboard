@@ -14,10 +14,7 @@ const orderSchema = new mongoose.Schema(
       required: false // Make optional for guest checkout
     },
     items: [{
-      productId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Product'
-      },
+      productId: String,
       name: String,
       price: Number,
       quantity: Number,
@@ -43,16 +40,11 @@ const orderSchema = new mongoose.Schema(
     paymentMethod: {
       type: String,
       enum: ['vietqr', 'cash'],
-      required: true
+      default: 'vietqr'
     },
     paymentStatus: {
       type: String,
-      enum: ['pending', 'paid', 'failed', 'refunded'],
-      default: 'pending'
-    },
-    orderStatus: {
-      type: String,
-      enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
+      enum: ['pending', 'paid', 'failed'],
       default: 'pending'
     },
     paymentDetails: {
@@ -65,11 +57,6 @@ const orderSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
-// Create virtual for full name
-orderSchema.virtual('shippingInfo.fullName').get(function() {
-  return `${this.shippingInfo.firstName} ${this.shippingInfo.lastName}`;
-});
 
 const Order = mongoose.model('Order', orderSchema);
 
