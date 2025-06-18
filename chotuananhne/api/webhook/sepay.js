@@ -4,7 +4,17 @@ import { MongoClient } from 'mongodb';
 const uri = process.env.MONGODB_URI;
 
 export default async function handler(req, res) {
-  // Only allow POST method
+  // Set CORS headers directly in the handler too for extra safety
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  // Handle OPTIONS preflight request
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  // Only allow POST method for actual processing
   if (req.method !== 'POST') {
     return res.status(200).json({
       success: true,
@@ -21,7 +31,7 @@ export default async function handler(req, res) {
     // Connect to MongoDB
     const client = new MongoClient(uri);
     await client.connect();
-    const database = client.db('your_database_name');
+    const database = client.db('your_database_name'); // Replace with your DB name
     
     // Save transaction record
     const transactions = database.collection('transactions');
@@ -30,7 +40,7 @@ export default async function handler(req, res) {
     // Extract order reference from content if possible
     let orderRef = null;
     if (payload.content) {
-      const match = payload.content.match(/PointBoard([A-Z0-9]+)/i);
+      const match = payload.content.match(/PointBoard-?([A-Z0-9]+)/i);
       if (match) {
         orderRef = match[1];
       }
