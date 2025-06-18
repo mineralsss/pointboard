@@ -8,17 +8,12 @@ const transactionSchema = new mongoose.Schema(
     amount: Number,
     content: String,
     referenceCode: String,
-    status: {
-      type: String,
-      enum: ['pending', 'success', 'failed'],
-      default: 'pending'
-    },
-    rawData: Object, // Store the entire webhook payload
+    status: String,
+    rawData: Object,
     requestIP: String
   },
   { timestamps: true }
 );
 
 const Transaction = mongoose.model('Transaction', transactionSchema);
-
 module.exports = Transaction;
