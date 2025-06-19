@@ -1,66 +1,106 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { apiService } from "../services/api";
+import React, { createContext, useState, useEffect, useContext } from "react";
+import apiService from "../services/api";
 
-const AuthContext = createContext();
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-};
+export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Check if user is already logged in
-    const userData = apiService.getUserData();
-    if (userData && apiService.isAuthenticated()) {
-      setUser(userData);
-    }
-    setIsLoading(false);
+    const loadUser = async () => {
+      try {
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+          setLoading(false);
+          return;
+        }
+
+        // Check which user data method exists and use it
+        if (typeof apiService.getUserData === "function") {
+          const data = await apiService.getUserData();
+          if (data && data.user) {
+            setUser(data.user);
+          }
+        } else if (typeof apiService.getUser === "function") {
+          const data = await apiService.getUser();
+          if (data) {
+            setUser(data);
+          }
+        } else if (typeof apiService.getUserProfile === "function") {
+          const data = await apiService.getUserProfile();
+          if (data) {
+            setUser(data);
+          }
+        } else {
+          console.error("No user data method available in apiService");
+        }
+      } catch (err) {
+        console.error("Failed to load user data:", err);
+        setError(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUser();
   }, []);
 
-  const login = async (email, password) => {
+  const login = async (credentials) => {
     try {
-      const response = await apiService.login(email, password);
-      if (response.success) {
-        setUser(response.data.userData);
+      const response = await apiService.login(credentials);
+      if (response.token) {
+        localStorage.setItem("token", response.token);
+        if (response.user) {
+          setUser(response.user);
+        } else {
+          // Try to fetch user data if not included in login response
+          loadUser();
+        }
         return { success: true };
       }
-    } catch (error) {
-      return { success: false, error: error.message };
+      return { success: false, message: "Login failed" };
+    } catch (err) {
+      console.error("Login error:", err);
+      return {
+        success: false,
+        message: err.response?.data?.message || "Login failed",
+      };
     }
+  };
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    setUser(null);
   };
 
   const register = async (userData) => {
     try {
       const response = await apiService.register(userData);
-      if (response.success) {
-        setUser(response.data.userData);
-        return { success: true };
-      }
-    } catch (error) {
-      return { success: false, error: error.message };
+      return { success: true, data: response };
+    } catch (err) {
+      console.error("Registration error:", err);
+      throw err; // Rethrow to let component handle it
     }
   };
 
-  const logout = () => {
-    apiService.logout();
-    setUser(null);
-  };
-
-  const value = {
-    user,
-    login,
-    register,
-    logout,
-    isAuthenticated: !!user,
-    isLoading,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        error,
+        isAuthenticated: !!user,
+        login,
+        logout,
+        register,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };
+
+export const useAuth = () => useContext(AuthContext);

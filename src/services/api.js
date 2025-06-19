@@ -1,128 +1,57 @@
 import axios from "axios";
 
-const API_BASE_URL = "https://pointboard-db-7cd97e9827ca.herokuapp.com/api/v1";
-
-// Create axios instance with default config
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
-// Add request interceptor to include auth token
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("accessToken");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Add response interceptor to handle errors
-apiClient.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid, clear storage
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-      localStorage.removeItem("userData");
-      window.location.href = "/login";
-    }
-    return Promise.reject(error);
-  }
-);
-
 class ApiService {
-  async login(email, password) {
-    try {
-      const response = await apiClient.post("/auth/login", {
-        email,
-        password,
-      });
+  constructor() {
+    // Fix the process.env reference
+    const apiUrl =
+      import.meta.env?.VITE_API_URL ||
+      (typeof process !== "undefined" && process.env?.REACT_APP_API_URL) ||
+      "/api";
 
-      const data = response.data;
+    this.axios = axios.create({
+      baseURL: apiUrl,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
 
-      // Store tokens in localStorage
-      if (data.success) {
-        localStorage.setItem("accessToken", data.data.accessToken);
-        localStorage.setItem("refreshToken", data.data.refreshToken);
-        localStorage.setItem("userData", JSON.stringify(data.data.userData));
-
-        // Navigate to main menu after successful login
-        window.location.href = "/mainmenu"; // Replace with your main menu route
+    // Add request interceptor to include auth token if available
+    this.axios.interceptors.request.use((config) => {
+      const token = localStorage.getItem("token");
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
       }
-
-      return data;
-    } catch (error) {
-      console.error("Login error:", error);
-      const errorMessage =
-        error.response?.data?.message || error.message || "Login failed";
-      throw new Error(errorMessage);
-    }
+      return config;
+    });
   }
 
   async register(userData) {
     try {
-      // Add default role as student
-      const registrationData = {
-        ...userData,
-        role: "student",
-      };
-
-      const response = await apiClient.post("/auth/register", registrationData);
-      const data = response.data;
-
-      // Auto login after successful registration
-      if (data.success && data.data?.accessToken) {
-        localStorage.setItem("accessToken", data.data.accessToken);
-        localStorage.setItem("refreshToken", data.data.refreshToken);
-        localStorage.setItem("userData", JSON.stringify(data.data.userData));
-
-        // Show message about confirmation email (could use a toast notification)
-        alert(
-          "Registration successful! A confirmation email has been sent to your email address."
-        );
-
-        // Optional: redirect to main menu
-        window.location.href = "/mainmenu";
-      }
-
-      return data;
+      const response = await this.axios.post("/auth/register", userData);
+      return response.data;
     } catch (error) {
-      console.error("Registration error:", error);
-      const errorMessage =
-        error.response?.data?.message || error.message || "Registration failed";
-      throw new Error(errorMessage);
+      // Don't handle the error here - let components handle it
+      throw error;
     }
   }
 
-  logout() {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("userData");
+  async login(credentials) {
+    try {
+      const response = await this.axios.post("/auth/login", credentials);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 
-  isAuthenticated() {
-    return !!localStorage.getItem("accessToken");
-  }
-
-  getUserData() {
-    const userData = localStorage.getItem("userData");
-    return userData ? JSON.parse(userData) : null;
-  }
-
-  getAccessToken() {
-    return localStorage.getItem("accessToken");
+  async getUserProfile() {
+    try {
+      const response = await this.axios.get("/users/profile");
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 }
 
-export const apiService = new ApiService();
+export default new ApiService();

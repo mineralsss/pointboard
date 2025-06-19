@@ -39,6 +39,7 @@ function Register() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [generalError, setGeneralError] = useState(""); // New state for general errors
 
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -56,6 +57,11 @@ function Register() {
         ...prev,
         [name]: "",
       }));
+    }
+    
+    // Clear general error when user starts typing in any field
+    if (generalError) {
+      setGeneralError("");
     }
   };
 
@@ -123,23 +129,54 @@ function Register() {
 
     setIsLoading(true);
     setErrors({});
+    setGeneralError("");
 
     try {
       // Remove confirmPassword from the data sent to API
       const { confirmPassword, ...registerData } = formData;
 
-      const result = await register(registerData);
-
-      if (result.success) {
-        // Redirect to home page on successful registration
-        navigate("/");
-      } else {
-        setErrors({
-          submit: result.error || "Đăng ký thất bại. Vui lòng thử lại.",
-        });
-      }
+      // Call the register function from AuthContext
+      await register(registerData);
+      
+      // If successful, navigate to login page
+      navigate("/login");
     } catch (error) {
-      setErrors({ submit: "Có lỗi xảy ra. Vui lòng thử lại." });
+      console.error('Registration error:', error);
+      
+      // Extract error details from the axios error response
+      if (error.response && error.response.data) {
+        const { data } = error.response;
+        
+        // Check for specific error types
+        if (data.errorType === 'validation_error' && data.errors) {
+          // Set each field error individually
+          setErrors(data.errors);
+        } else if (data.errorType === 'duplicate_email') {
+          setErrors({ email: data.message || 'Email này đã được sử dụng. Vui lòng sử dụng email khác.' });
+        } else if (data.errorType === 'duplicate_phone') {
+          setErrors({ phone: data.message || 'Số điện thoại này đã được sử dụng. Vui lòng sử dụng số khác.' });
+        } else if (data.code === 11000 || data.name === 'MongoError' || data.name === 'MongoServerError') {
+          // MongoDB duplicate key error - try to determine which field
+          const errorMessage = JSON.stringify(data);
+          
+          if (errorMessage.includes('email')) {
+            setErrors({ email: 'Email này đã được sử dụng. Vui lòng sử dụng email khác.' });
+          } else if (errorMessage.includes('phone')) {
+            setErrors({ phone: 'Số điện thoại này đã được sử dụng. Vui lòng sử dụng số khác.' });
+          } else {
+            setGeneralError('Tài khoản này đã tồn tại.');
+          }
+        } else {
+          // For other types of errors
+          setGeneralError(data.message || 'Đăng ký thất bại. Vui lòng thử lại.');
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        setGeneralError('Không nhận được phản hồi từ máy chủ. Vui lòng kiểm tra kết nối mạng.');
+      } else {
+        // For network errors or other issues
+        setGeneralError('Có lỗi xảy ra khi kết nối với máy chủ. Vui lòng thử lại sau.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -199,9 +236,9 @@ function Register() {
             </Typography>
           </Box>
 
-          {errors.submit && (
+          {generalError && (
             <Alert severity="error" sx={{ mb: 2 }}>
-              {errors.submit}
+              {generalError}
             </Alert>
           )}
 

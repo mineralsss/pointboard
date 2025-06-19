@@ -123,64 +123,30 @@ export default function Checkout() {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
   
-  // Modified payment verification function with retry logic
+  // Verify payment by checking if transaction exists in MongoDB
   const verifyPayment = async () => {
-    let attempts = 0;
+    setIsCheckingPayment(true);
+    setPaymentError('');
     
-    while (attempts < MAX_PAYMENT_VERIFICATION_ATTEMPTS) {
-      try {
-        setIsCheckingPayment(true);
-        setPaymentError('');
-        
-        // Start polling for payment status
-        const interval = setInterval(async () => {
-          try {
-            // Call API to check payment status
-            const response = await apiService.get(`/orders/payment-status/${orderRef}`);
-            
-            if (response.data.status === 'payment_received') {
-              // Payment received, stop polling
-              clearInterval(interval);
-              setPollingInterval(null);
-              setIsPaymentVerified(true);
-            }
-          } catch (err) {
-            console.error('Error checking payment status:', err);
-            // Don't stop polling on error
-          }
-        }, 5000); // Check every 5 seconds
-        
-        setPollingInterval(interval);
-        
-        // Initial check
-        const response = await apiService.get(`/orders/payment-status/${orderRef}`);
-        if (response.data.status === 'payment_received') {
-          clearInterval(interval);
-          setPollingInterval(null);
-          setIsPaymentVerified(true);
-        }
-        
-        const result = await checkPaymentStatus(orderRef);
-        
-        if (result.verified) {
-          console.log(`Payment verified successfully on attempt ${attempts + 1}`);
-          return result;
-        }
-        
-        // Payment not verified yet, increment attempts and wait before retrying
-        attempts++;
-        console.log(`Payment verification attempt ${attempts}/${MAX_PAYMENT_VERIFICATION_ATTEMPTS} failed, retrying...`);
-        await sleep(VERIFICATION_RETRY_DELAY_MS);
-      } catch (error) {
-        attempts++;
-        console.error(`Error during payment verification attempt ${attempts}/${MAX_PAYMENT_VERIFICATION_ATTEMPTS}:`, error);
-        await sleep(VERIFICATION_RETRY_DELAY_MS);
+    try {
+      const result = await checkTransactionStatus(orderRef);
+      
+      if (result.verified) {
+        setIsPaymentVerified(true);
+        setIsCheckingPayment(false);
+        return result;
       }
+      
+      if (result.error) {
+        setPaymentError(result.error);
+        setIsCheckingPayment(false);
+        return result;
+      }
+    } catch (error) {
+      console.error('Error verifying payment:', error);
+      setPaymentError('An error occurred while verifying payment. Please try again.');
+      setIsCheckingPayment(false);
     }
-    
-    // Only reach here after exhausting all retry attempts
-    console.error("Could not verify payment after maximum retry attempts");
-    setPaymentError('Could not verify payment. Please try again or contact support.');
   };
   
   /**
@@ -189,16 +155,16 @@ export default function Checkout() {
  * @returns {Promise<Object>} - Result of the transaction verification
  */
 async function checkTransactionStatus(transactionId) {
-  const MAX_VERIFICATION_ATTEMPTS = 1000;
+  const MAX_VERIFICATION_ATTEMPTS = 10;
   const RETRY_DELAY_MS = 2000; // 2 seconds between attempts
   let attempts = 0;
   
   while (attempts < MAX_VERIFICATION_ATTEMPTS) {
     try {
-      // Show checking attempt number to user for transparency
-      updateLoadingMessage(`Checking payment status (attempt ${attempts + 1}/${MAX_VERIFICATION_ATTEMPTS})...`);
+      // Update UI to show current attempt
+      attempts++;
       
-      const response = await fetch(`/api/verify-payment/${transactionId}`, {
+      const response = await fetch(`/api/transactions/verify/${transactionId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -211,25 +177,48 @@ async function checkTransactionStatus(transactionId) {
       
       const data = await response.json();
       
-      if (data.status === 'success' || data.status === 'completed') {
+      // If transaction exists and is completed/successful
+      if (data.exists && (data.status === 'completed' || data.status === 'success')) {
+        console.log(`Transaction ${transactionId} verified successfully`);
         return { verified: true, data: data };
       }
       
-      if (data.status === 'failed') {
+      // If transaction exists but failed
+      if (data.exists && (data.status === 'failed' || data.status === 'rejected')) {
+        console.log(`Transaction ${transactionId} found but has failed status`);
         return { verified: false, data: data };
       }
       
-      // Status is still pending or processing, try again
-      attempts++;
-      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      // If transaction exists but is in received state
+      if (data.exists && data.status === 'received') {
+        console.log(`Transaction ${transactionId} is in received state, waiting for processing`);
+      } else {
+        console.log(`Transaction ${transactionId} not found or still pending, waiting to retry...`);
+      }
+      
+      // Show current attempt in UI
+      setPaymentError(`Verifying payment... Attempt ${attempts}/${MAX_VERIFICATION_ATTEMPTS}`);
+      
+      // Not found or still pending, wait before retrying
+      if (attempts < MAX_VERIFICATION_ATTEMPTS) {
+        await sleep(RETRY_DELAY_MS);
+      }
     } catch (error) {
-      console.error(`Verification attempt ${attempts + 1} failed:`, error);
-      attempts++;
-      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      console.error(`Verification attempt ${attempts} failed:`, error);
+      
+      // Wait before retrying
+      if (attempts < MAX_VERIFICATION_ATTEMPTS) {
+        await sleep(RETRY_DELAY_MS);
+      }
     }
   }
   
-  return { verified: false, error: "Maximum verification attempts reached" };
+  // After MAX_VERIFICATION_ATTEMPTS, conclude transaction couldn't be verified
+  console.error(`Could not verify transaction ${transactionId} after ${MAX_VERIFICATION_ATTEMPTS} attempts`);
+  return { 
+    verified: false, 
+    error: "Could not verify payment after maximum retry attempts. It may still be processing, or you may need to complete the payment." 
+  };
 }
   
   // Clean up polling interval on component unmount
