@@ -26,6 +26,10 @@ import {
 // Reordered steps as requested
 const steps = ['Review your order', 'Shipping information', 'Payment details'];
 
+// Add these constants at the top of your file
+const MAX_PAYMENT_VERIFICATION_ATTEMPTS = 10;
+const VERIFICATION_RETRY_DELAY_MS = 2000; // 2 seconds between attempts
+
 export default function Checkout() {
   const [activeStep, setActiveStep] = useState(0);
   const [shippingInfo, setShippingInfo] = useState({
@@ -114,44 +118,119 @@ export default function Checkout() {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
   }
   
-  // Verify payment by sending a request to the backend
+  // Helper function for delay
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+  
+  // Modified payment verification function with retry logic
   const verifyPayment = async () => {
-    try {
-      setIsCheckingPayment(true);
-      setPaymentError('');
-      
-      // Start polling for payment status
-      const interval = setInterval(async () => {
-        try {
-          // Call API to check payment status
-          const response = await apiService.get(`/orders/payment-status/${orderRef}`);
-          
-          if (response.data.status === 'payment_received') {
-            // Payment received, stop polling
-            clearInterval(interval);
-            setPollingInterval(null);
-            setIsPaymentVerified(true);
+    let attempts = 0;
+    
+    while (attempts < MAX_PAYMENT_VERIFICATION_ATTEMPTS) {
+      try {
+        setIsCheckingPayment(true);
+        setPaymentError('');
+        
+        // Start polling for payment status
+        const interval = setInterval(async () => {
+          try {
+            // Call API to check payment status
+            const response = await apiService.get(`/orders/payment-status/${orderRef}`);
+            
+            if (response.data.status === 'payment_received') {
+              // Payment received, stop polling
+              clearInterval(interval);
+              setPollingInterval(null);
+              setIsPaymentVerified(true);
+            }
+          } catch (err) {
+            console.error('Error checking payment status:', err);
+            // Don't stop polling on error
           }
-        } catch (err) {
-          console.error('Error checking payment status:', err);
-          // Don't stop polling on error
+        }, 5000); // Check every 5 seconds
+        
+        setPollingInterval(interval);
+        
+        // Initial check
+        const response = await apiService.get(`/orders/payment-status/${orderRef}`);
+        if (response.data.status === 'payment_received') {
+          clearInterval(interval);
+          setPollingInterval(null);
+          setIsPaymentVerified(true);
         }
-      }, 5000); // Check every 5 seconds
-      
-      setPollingInterval(interval);
-      
-      // Initial check
-      const response = await apiService.get(`/orders/payment-status/${orderRef}`);
-      if (response.data.status === 'payment_received') {
-        clearInterval(interval);
-        setPollingInterval(null);
-        setIsPaymentVerified(true);
+        
+        const result = await checkPaymentStatus(orderRef);
+        
+        if (result.verified) {
+          console.log(`Payment verified successfully on attempt ${attempts + 1}`);
+          return result;
+        }
+        
+        // Payment not verified yet, increment attempts and wait before retrying
+        attempts++;
+        console.log(`Payment verification attempt ${attempts}/${MAX_PAYMENT_VERIFICATION_ATTEMPTS} failed, retrying...`);
+        await sleep(VERIFICATION_RETRY_DELAY_MS);
+      } catch (error) {
+        attempts++;
+        console.error(`Error during payment verification attempt ${attempts}/${MAX_PAYMENT_VERIFICATION_ATTEMPTS}:`, error);
+        await sleep(VERIFICATION_RETRY_DELAY_MS);
       }
-    } catch (error) {
-      console.error('Payment verification failed:', error);
-      setPaymentError('Could not verify payment. Please try again or contact support.');
     }
+    
+    // Only reach here after exhausting all retry attempts
+    console.error("Could not verify payment after maximum retry attempts");
+    setPaymentError('Could not verify payment. Please try again or contact support.');
   };
+  
+  /**
+ * Check with the backend if a transaction has been completed
+ * @param {string} transactionId - The ID of the transaction to verify
+ * @returns {Promise<Object>} - Result of the transaction verification
+ */
+async function checkTransactionStatus(transactionId) {
+  const MAX_VERIFICATION_ATTEMPTS = 10;
+  const RETRY_DELAY_MS = 2000; // 2 seconds between attempts
+  let attempts = 0;
+  
+  while (attempts < MAX_VERIFICATION_ATTEMPTS) {
+    try {
+      // Show checking attempt number to user for transparency
+      updateLoadingMessage(`Checking payment status (attempt ${attempts + 1}/${MAX_VERIFICATION_ATTEMPTS})...`);
+      
+      const response = await fetch(`/api/verify-payment/${transactionId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Server responded with status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.status === 'success' || data.status === 'completed') {
+        return { verified: true, data: data };
+      }
+      
+      if (data.status === 'failed') {
+        return { verified: false, data: data };
+      }
+      
+      // Status is still pending or processing, try again
+      attempts++;
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+    } catch (error) {
+      console.error(`Verification attempt ${attempts + 1} failed:`, error);
+      attempts++;
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+    }
+  }
+  
+  return { verified: false, error: "Maximum verification attempts reached" };
+}
   
   // Clean up polling interval on component unmount
   useEffect(() => {
