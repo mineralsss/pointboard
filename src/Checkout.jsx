@@ -189,7 +189,7 @@ export default function Checkout() {
  * @returns {Promise<Object>} - Result of the transaction verification
  */
 async function checkTransactionStatus(transactionId) {
-  const MAX_VERIFICATION_ATTEMPTS = 10;
+  const MAX_VERIFICATION_ATTEMPTS = 1000;
   const RETRY_DELAY_MS = 2000; // 2 seconds between attempts
   let attempts = 0;
   
