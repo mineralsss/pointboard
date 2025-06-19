@@ -3,7 +3,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "https://pointboard-fj2c.vercel.app/api/$1"
+      "dest": "https://pointboard-db-7cd97e9827ca.herokuapp.com/api/$1"
     },
     {
       "handle": "filesystem"

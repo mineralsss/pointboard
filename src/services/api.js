@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = "https://pointboard-fj2c.vercel.app/api/v1";
+const API_BASE_URL = "https://pointboard-db-7cd97e9827ca.herokuapp.com/api/v1";
 
 // Create axios instance with default config
 const apiClient = axios.create({
