@@ -6,9 +6,12 @@ import ClickAwayListener from '@mui/material/ClickAwayListener';
 import Base from './base';
 import Aboutus from './Aboutus';
 import Guide from './Guide';
+import { CartProvider } from './contexts/CartContext';
 import ProductsContent from './ProductsContent';
 import instagramIconSrc from '/images/instagram.png';  // You'll need to add this image to your project
 import facebookIconSrc from '/images/facebook.png';
+import CartDisplay from './components/CartDisplay';
+import { useCart } from './contexts/CartContext';
 
 // Top part of the dropdown using SVG path
 const DropdownTop = styled('div')(({ theme }) => ({
@@ -83,6 +86,7 @@ const SocialButton = styled(Box)(({}) => ({
 }));
 
 function MainMenu() {
+  const { getTotalItems } = useCart();
   // State to manage active tab
   const [value, setValue] = useState(0);
   
@@ -128,22 +132,30 @@ function MainMenu() {
   const renderContent = () => {
     switch (value) {
       case 0:
-        return <ProductsContent />;
+        return <ProductsContent />; // Remove CartProvider wrapper since it's in App.jsx
       case 1:
-        return <Guide/>;
+        return <Guide />;
       case 2:
         return <PromotionsContent />;
       case 3:
         return <CommunityContent />;
       case 4:
-        return <Aboutus />; 
+        return <Aboutus />;
       default:
-        return <ProductsContent />;
+        return <ProductsContent />; // Remove CartProvider wrapper
     }
   };
 
-  // Placeholder components for other tabs
+  // Update tab labels to match the correct order
+  const tabs = [
+    "Sản phẩm",    // case 0 - ProductsContent
+    "Hướng dẫn",   // case 1 - Guide
+    "Ưu đãi",      // case 2 - PromotionsContent
+    "Cộng đồng",   // case 3 - Dropdown (CommunityContent)
+    "Về chúng tôi" // case 4 - Aboutus
+  ];
 
+  // Placeholder PromotionsContent component
   const PromotionsContent = () => (
     <Box sx={{ p: 3, backgroundColor: '#491E6C', borderRadius: '16px', color: 'white' }}>
       <Typography variant="h4" sx={{ mb: 3, fontFamily: "'Raleway', sans-serif" }}>
@@ -152,9 +164,38 @@ function MainMenu() {
       <Typography paragraph>
         Các chương trình khuyến mãi đặc biệt dành cho bạn...
       </Typography>
+      
+      <Grid container spacing={3} sx={{ mt: 2 }}>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', color: 'white' }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                Giảm giá 20% cho thành viên mới
+              </Typography>
+              <Typography variant="body2">
+                Áp dụng cho đơn hàng đầu tiên từ 500.000đ
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        <Grid item xs={12} md={6}>
+          <Card sx={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', color: 'white' }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                Mua 2 tặng 1
+              </Typography>
+              <Typography variant="body2">
+                Áp dụng cho các sản phẩm game thẻ bài
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
     </Box>
   );
 
+  // Placeholder CommunityContent component (backup)
   const CommunityContent = () => (
     <Box sx={{ p: 3, backgroundColor: '#491E6C', borderRadius: '16px', color: 'white' }}>
       <Typography variant="h4" sx={{ mb: 3, fontFamily: "'Raleway', sans-serif" }}>
@@ -179,6 +220,7 @@ function MainMenu() {
           overflow: 'hidden'
         }}
       >
+
         <Tabs 
           value={value} 
           onChange={handleChange} 
@@ -200,32 +242,36 @@ function MainMenu() {
             },
           }}
         >
-          <Tab label="Sản phẩm" />
-          <Tab label="Hướng dẫn" />
-          <Tab label="Ưu đãi" />
-          {/* Community tab with dropdown */}
-          <Tab 
-            label={
-              <Box 
-                sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center',
-                  color: '#ffffff'
-                }} 
-                onClick={handleCommunityClick}
-              >
-                Cộng đồng
-                <ArrowDropDownIcon sx={{ 
-                  color: '#ffffff',
-                  transform: communityMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                  transition: 'transform 0.3s ease',
-                  marginLeft: '4px'
-                }} />
-              </Box>
+          {tabs.map((label, index) => {
+            if (index === 3) {
+              // Special handling for Community tab with dropdown
+              return (
+                <Tab 
+                  key={index}
+                  label={
+                    <Box 
+                      sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center',
+                        color: '#ffffff'
+                      }} 
+                      onClick={handleCommunityClick}
+                    >
+                      {label}
+                      <ArrowDropDownIcon sx={{ 
+                        color: '#ffffff',
+                        transform: communityMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.3s ease',
+                        marginLeft: '4px'
+                      }} />
+                    </Box>
+                  }
+                  disableRipple
+                />
+              );
             }
-            disableRipple
-          />
-          <Tab label="Về chúng tôi" />
+            return <Tab key={index} label={label} />;
+          })}
         </Tabs>
       </AppBar>
 

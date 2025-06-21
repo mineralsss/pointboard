@@ -1,12 +1,13 @@
 import React, { useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import Base from "./base";
 import Login from "./Login";
 import MainMenu from "./MainMenu";
 import Register from "./Register";
 import Checkout from "./Checkout";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { Check } from "@mui/icons-material";
+import { CartProvider } from './contexts/CartContext';
+import { CartUpdateProvider } from './contexts/CartUpdateContext';
 
 // Home component - you can replace this with your actual home page
 function Home() {
@@ -69,11 +70,15 @@ function AuthRoutes() {
 
 function App() {
   return (
-    <Router>
+    <BrowserRouter>
       <AuthProvider>
-        <AuthRoutes />
+        <CartProvider>
+          <CartUpdateProvider>
+            <AuthRoutes />
+          </CartUpdateProvider>
+        </CartProvider>
       </AuthProvider>
-    </Router>
+    </BrowserRouter>
   );
 }
 

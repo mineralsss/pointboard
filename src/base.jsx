@@ -1,4 +1,5 @@
-import * as React from "react";
+import React, { useState, useEffect } from 'react';
+import {react} from "react";
 import "./base.css";
 import { styled, alpha } from "@mui/material/styles";
 import AppBar from "@mui/material/AppBar";
@@ -17,8 +18,13 @@ import NotificationsIcon from "@mui/icons-material/Notifications";
 import MoreIcon from "@mui/icons-material/MoreVert";
 import Badge from "@mui/material/Badge";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "./contexts/AuthContext";
-import { Avatar } from "@mui/material";
+import { useAuth } from './contexts/AuthContext';
+import { useCart } from './contexts/CartContext';
+import { useCartUpdate } from "./contexts/CartUpdateContext";
+import { Avatar, Drawer, List, Card, Button, Divider } from "@mui/material";
+import DeleteIcon from "@mui/icons-material/Delete";
+import AddIcon from "@mui/icons-material/Add";
+import RemoveIcon from "@mui/icons-material/Remove";
 
 // Global styles
 const GlobalStyles = styled("style")({
@@ -98,9 +104,42 @@ const StyledInputBase = styled(InputBase)(({ theme }) => ({
 function Base({ children }) {
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [mobileMoreAnchorEl, setMobileMoreAnchorEl] = React.useState(null);
+  const [isCartOpen, setIsCartOpen] = React.useState(false);
+
+  // Get auth context
+  const { isAuthenticated, user, logout } = useAuth();
+  
+  // Get cart context
+  const { 
+    cartItems,
+    getTotalItems, 
+    getTotalPrice,
+    updateQuantity,
+    removeFromCart,
+    clearCart
+  } = useCart();
+
+  // Debug: Add console log to check user data
+  useEffect(() => {
+    console.log('Base component - User data:', user);
+    console.log('Base component - Is authenticated:', isAuthenticated);
+  }, [user, isAuthenticated]);
+
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, isAuthenticated } = useAuth();
+  
+  const { forceUpdate } = useCartUpdate();
+
+  // Force update when cart items change
+  React.useEffect(() => {
+    forceUpdate();
+  }, [cartItems, forceUpdate]);
+
+  // Add this debug function to test
+  const handleQuantityChange = (itemId, newQuantity) => {
+    console.log('Changing quantity for item:', itemId, 'to:', newQuantity);
+    updateQuantity(itemId, newQuantity);
+  };
 
   const isMenuOpen = Boolean(anchorEl);
   const isMobileMenuOpen = Boolean(mobileMoreAnchorEl);
@@ -130,6 +169,17 @@ function Base({ children }) {
     logout();
     handleMenuClose();
     navigate("/");
+  };
+
+  const toggleCartDrawer = () => {
+    setIsCartOpen(!isCartOpen);
+  };
+
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND'
+    }).format(price);
   };
 
   const menuId = "primary-search-account-menu";
@@ -187,9 +237,9 @@ function Base({ children }) {
       open={isMobileMenuOpen}
       onClose={handleMobileMenuClose}
     >
-      <MenuItem>
+      <MenuItem onClick={toggleCartDrawer}>
         <IconButton size="large" aria-label="shopping cart" color="inherit">
-          <Badge badgeContent={3} color="error">
+          <Badge badgeContent={getTotalItems()} color="error">
             <ShoppingCartIcon />
           </Badge>
         </IconButton>
@@ -251,7 +301,7 @@ function Base({ children }) {
             sx={{
               flexDirection: { xs: "column", sm: "row" },
               padding: { xs: "8px", sm: "0 16px" },
-              justifyContent: "space-between", // This helps with spacing in desktop view
+              justifyContent: "space-between",
             }}
           >
             {/* Logo Container - give it consistent width */}
@@ -259,7 +309,7 @@ function Base({ children }) {
               sx={{
                 display: "flex",
                 justifyContent: "flex-start",
-                width: { xs: "100%", sm: "25%" }, // Fixed width in desktop mode
+                width: { xs: "100%", sm: "25%" }, // Reduce back to 25%
                 mb: { xs: 1, sm: 0 },
                 alignItems: "center",
               }}
@@ -311,10 +361,10 @@ function Base({ children }) {
               </Box>
             </Box>
 
-            {/* Search bar - perfectly centered */}
+            {/* Search Container */}
             <Box
               sx={{
-                width: { xs: "100%", sm: "50%" }, // Takes 50% of space on desktop
+                width: { xs: "100%", sm: "50%" }, // Increase back to 50%
                 mb: { xs: 1, sm: 0 },
                 display: "flex",
                 justifyContent: "center",
@@ -338,20 +388,23 @@ function Base({ children }) {
               </Search>
             </Box>
 
-            {/* Desktop icons - fixed width to balance the layout */}
+            {/* Desktop Icons Container - Give more space for user info */}
             <Box
               sx={{
                 display: { xs: "none", md: "flex" },
-                width: { sm: "25%" }, // Fixed width to balance with logo section
+                width: { sm: "25%" }, // Keep at 25% but ensure content doesn't shrink
                 gap: 1,
                 justifyContent: "flex-end",
                 alignItems: "center",
+                minWidth: "300px", // Add minimum width to prevent shrinking
               }}
             >
+              {/* Cart Icon */}
               <IconButton
                 size="large"
                 aria-label="shopping cart"
                 color="inherit"
+                onClick={toggleCartDrawer}
                 sx={{
                   width: "48px",
                   height: "48px",
@@ -365,11 +418,22 @@ function Base({ children }) {
                   },
                 }}
               >
-                <Badge badgeContent={3} color="error">
+                <Badge 
+                  badgeContent={getTotalItems()} 
+                  color="error"
+                  sx={{
+                    '& .MuiBadge-badge': {
+                      backgroundColor: '#FFD700',
+                      color: '#39095D',
+                      fontWeight: 'bold'
+                    }
+                  }}
+                >
                   <ShoppingCartIcon />
                 </Badge>
               </IconButton>
 
+              {/* Notifications Icon */}
               <IconButton
                 size="large"
                 aria-label="show notifications"
@@ -392,7 +456,7 @@ function Base({ children }) {
                 </Badge>
               </IconButton>
 
-              {/* Only show account icon when user is authenticated */}
+              {/* User Avatar (only when authenticated) */}
               {isAuthenticated && (
                 <IconButton
                   size="large"
@@ -411,26 +475,35 @@ function Base({ children }) {
                       backgroundColor: "#4c1275",
                     },
                     "& .MuiSvgIcon-root": {
-                      fontSize: "24px",
+                      fontSize: "28px",
                     },
                   }}
                 >
                   {user?.avatar ? (
-                    <Avatar src={user.avatar} sx={{ width: 32, height: 32 }} />
+                    <Avatar 
+                      src={user.avatar} 
+                      sx={{ 
+                        width: 36,
+                        height: 36
+                      }} 
+                    />
                   ) : (
-                    <AccountCircle />
+                    <AccountCircle sx={{ fontSize: "28px" }} />
                   )}
                 </IconButton>
               )}
 
-              {/* User info or Login Button */}
+              {/* User Info or Login Button - Fixed styling */}
               {isAuthenticated ? (
                 <Box
                   sx={{
-                    ml: 1,
+                    ml: 2,
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "flex-start",
+                    minWidth: "140px", // Increase minimum width
+                    maxWidth: "200px", // Add maximum width
+                    flexShrink: 0, // Prevent shrinking
                   }}
                 >
                   <Typography
@@ -438,25 +511,33 @@ function Base({ children }) {
                       color: "#FFF",
                       fontFamily: "'Inter', sans-serif",
                       fontWeight: 600,
-                      fontSize: "0.9rem",
+                      fontSize: "1rem",
                       lineHeight: 1.2,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: "100%",
                     }}
                   >
-                    {user?.firstName} {user?.lastName}
+                    {user?.firstName || 'User'} {user?.lastName || ''}
                   </Typography>
                   <Typography
                     sx={{
                       color: "#E0D2EE",
                       fontFamily: "'Inter', sans-serif",
                       fontWeight: 400,
-                      fontSize: "0.75rem",
+                      fontSize: "0.85rem",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: "100%",
                     }}
                   >
-                    {user?.balance?.toLocaleString("vi-VN")} VND
+                    {user?.balance?.toLocaleString("vi-VN") || '0'} VND
                   </Typography>
                 </Box>
               ) : (
-                <Box sx={{ ml: 1 }}>
+                <Box sx={{ ml: 2, flexShrink: 0 }}>
                   <Typography
                     component="button"
                     onClick={handleLoginClick}
@@ -465,13 +546,15 @@ function Base({ children }) {
                       textDecoration: "none",
                       fontFamily: "'Inter', sans-serif",
                       fontWeight: 600,
+                      fontSize: "1rem",
                       backgroundColor: "#39095D",
-                      padding: "8px 16px",
+                      padding: "10px 18px",
                       borderRadius: "24px",
                       border: "2px solid #FFF",
                       transition: "all 0.3s ease",
                       display: "inline-block",
                       cursor: "pointer",
+                      whiteSpace: "nowrap",
                       "&:hover": {
                         backgroundColor: "#FFF",
                         color: "#39095D",
@@ -485,6 +568,249 @@ function Base({ children }) {
             </Box>
           </Toolbar>
         </AppBar>
+
+        {/* Cart Drawer */}
+        <Drawer
+          anchor="right"
+          open={isCartOpen}
+          onClose={toggleCartDrawer}
+          PaperProps={{
+            sx: {
+              width: { xs: '100%', sm: 400 },
+              backgroundColor: '#491E6C',
+              color: 'white'
+            }
+          }}
+        >
+          <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* Header */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#FFD700' }}>
+                Giỏ hàng ({getTotalItems()})
+              </Typography>
+              {cartItems.length > 0 && (
+                <Button
+                  onClick={clearCart}
+                  size="small"
+                  sx={{
+                    color: '#FF6B6B',
+                    borderColor: '#FF6B6B',
+                    '&:hover': {
+                      borderColor: '#FF5252',
+                      backgroundColor: 'rgba(255, 82, 82, 0.1)'
+                    }
+                  }}
+                  variant="outlined"
+                >
+                  Xóa tất cả
+                </Button>
+              )}
+            </Box>
+
+            <Divider sx={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', mb: 2 }} />
+
+            {/* Cart Items */}
+            {cartItems.length === 0 ? (
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                flex: 1,
+                opacity: 0.7
+              }}>
+                <ShoppingCartIcon sx={{ fontSize: 64, mb: 2 }} />
+                <Typography variant="h6">Giỏ hàng trống</Typography>
+                <Typography variant="body2">Thêm sản phẩm để bắt đầu mua sắm</Typography>
+              </Box>
+            ) : (
+              <>
+                {/* Items List */}
+                <Box sx={{ flex: 1, overflowY: 'auto' }}>
+                  <List>
+                    {cartItems.map((item) => (
+                      <Card key={item._id} sx={{ 
+                        mb: 2, 
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        backdropFilter: 'blur(10px)'
+                      }}>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, p: 2 }}>
+                          {/* Product Image */}
+                          <Avatar
+                            src={item.image}
+                            sx={{ 
+                              width: 60, 
+                              height: 60,
+                              backgroundColor: 'rgba(255, 255, 255, 0.2)'
+                            }}
+                          >
+                            {item.name.charAt(0)}
+                          </Avatar>
+
+                          {/* Product Info */}
+                          <Box sx={{ flex: 1 }}>
+                            <Typography 
+                              variant="subtitle1" 
+                              sx={{ 
+                                fontWeight: 'bold',
+                                color: 'white',
+                                mb: 0.5
+                              }}
+                            >
+                              {item.name}
+                            </Typography>
+                            
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                color: '#FFD700',
+                                fontWeight: 'bold',
+                                mb: 1
+                              }}
+                            >
+                              {formatPrice(item.price)}
+                            </Typography>
+
+                            {/* Quantity Controls */}
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <IconButton
+                                size="small"
+                                onClick={() => {
+                                  console.log('Decrease button clicked for:', item._id);
+                                  const newQuantity = item.quantity - 1;
+                                  if (newQuantity > 0) {
+                                    handleQuantityChange(item._id, newQuantity);
+                                  } else {
+                                    removeFromCart(item._id);
+                                  }
+                                }}
+                                sx={{
+                                  backgroundColor: '#FF6B6B',
+                                  color: 'white',
+                                  '&:hover': { backgroundColor: '#FF5252' },
+                                  width: 30,
+                                  height: 30
+                                }}
+                              >
+                                <RemoveIcon fontSize="small" />
+                              </IconButton>
+
+                              <Typography 
+                                sx={{ 
+                                  mx: 1,
+                                  fontWeight: 'bold',
+                                  minWidth: '30px',
+                                  textAlign: 'center',
+                                  color: 'white'
+                                }}
+                              >
+                                {item.quantity}
+                              </Typography>
+
+                              <IconButton
+                                size="small"
+                                onClick={() => {
+                                  console.log('Increase button clicked for:', item._id);
+                                  handleQuantityChange(item._id, item.quantity + 1);
+                                }}
+                                sx={{
+                                  backgroundColor: '#4CAF50',
+                                  color: 'white',
+                                  '&:hover': { backgroundColor: '#45A049' },
+                                  width: 30,
+                                  height: 30
+                                }}
+                              >
+                                <AddIcon fontSize="small" />
+                              </IconButton>
+
+                              <IconButton
+                                size="small"
+                                onClick={() => {
+                                  console.log('Remove button clicked for:', item._id);
+                                  removeFromCart(item._id);
+                                }}
+                                sx={{
+                                  ml: 1,
+                                  color: '#FF6B6B',
+                                  '&:hover': { 
+                                    backgroundColor: 'rgba(255, 107, 107, 0.1)' 
+                                  }
+                                }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
+
+                            {/* Subtotal */}
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                mt: 1,
+                                color: 'rgba(255, 255, 255, 0.8)',
+                                fontStyle: 'italic'
+                              }}
+                            >
+                              Tổng: {formatPrice(item.price * item.quantity)}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Card>
+                    ))}
+                  </List>
+                </Box>
+
+                {/* Total and Checkout */}
+                <Box sx={{ mt: 2 }}>
+                  <Divider sx={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', mb: 2 }} />
+                  
+                  <Box sx={{ 
+                    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+                    borderRadius: '12px',
+                    p: 2,
+                    mb: 2
+                  }}>
+                    <Typography 
+                      variant="h6" 
+                      sx={{ 
+                        color: '#FFD700',
+                        fontWeight: 'bold',
+                        textAlign: 'center'
+                      }}
+                    >
+                      Tổng cộng: {formatPrice(getTotalPrice())}
+                    </Typography>
+                  </Box>
+
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    size="large"
+                    sx={{
+                      backgroundColor: '#FFD700',
+                      color: '#491E6C',
+                      fontWeight: 'bold',
+                      fontSize: '16px',
+                      py: 1.5,
+                      '&:hover': {
+                        backgroundColor: '#FFC107',
+                        transform: 'scale(1.02)'
+                      }
+                    }}
+                    onClick={() => {
+                      // Handle checkout logic here
+                      console.log('Proceeding to checkout...');
+                      navigate('/checkout');
+                      toggleCartDrawer();
+                    }}
+                  >
+                    Thanh toán
+                  </Button>
+                </Box>
+              </>
+            )}
+          </Box>
+        </Drawer>
 
         {/* Update mobile menu to include all icons */}
         {renderMobileMenu}

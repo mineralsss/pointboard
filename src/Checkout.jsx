@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Base from './base';
+import { useCart } from './contexts/CartContext'; // Add this import
+import { useNavigate } from 'react-router-dom'; // Add navigation
 import {
   Box,
   Button,
@@ -31,6 +33,11 @@ const MAX_PAYMENT_VERIFICATION_ATTEMPTS = 10;
 const VERIFICATION_RETRY_DELAY_MS = 2000; // 2 seconds between attempts
 
 export default function Checkout() {
+  const navigate = useNavigate();
+  
+  // Get cart data from context
+  const { cartItems, getTotalPrice, clearCart } = useCart();
+  
   const [activeStep, setActiveStep] = useState(0);
   const [shippingInfo, setShippingInfo] = useState({
     firstName: '',
@@ -49,11 +56,36 @@ export default function Checkout() {
   const [orderId, setOrderId] = useState('');
   const [pollingInterval, setPollingInterval] = useState(null);
   
-  // Sample cart items - replace with your actual cart data
-  const cartItems = [
-    { id: 1, name: 'Product 1', price: 1000, quantity: 1, image: './images/cards.png' },
-    { id: 2, name: 'Product 2', price: 1000, quantity: 1, image: './images/cards.png' }
-  ];
+  // Check if cart is empty on component mount
+  useEffect(() => {
+    if (cartItems.length === 0) {
+      // Redirect to main menu if cart is empty
+      navigate('/mainmenu');
+    }
+  }, [cartItems.length, navigate]);
+
+  // If cart is empty, don't render the component
+  if (cartItems.length === 0) {
+    return (
+      <Base>
+        <Container maxWidth="lg" sx={{ mb: 8, textAlign: 'center', mt: 8 }}>
+          <Typography variant="h4" gutterBottom>
+            Your cart is empty
+          </Typography>
+          <Typography variant="body1" sx={{ mb: 3 }}>
+            Add some products to your cart before checking out.
+          </Typography>
+          <Button 
+            variant="contained" 
+            color="primary"
+            onClick={() => navigate('/mainmenu')}
+          >
+            Continue Shopping
+          </Button>
+        </Container>
+      </Base>
+    );
+  }
   
   const handleNext = () => {
     // For VietQR payment, don't proceed if payment is not verified
@@ -84,8 +116,9 @@ export default function Checkout() {
     setIsPaymentVerified(false);
   };
   
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shipping = 3000;
+  // Calculate totals using real cart data
+  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const shipping = 30000; // 30,000 VND shipping
   const tax = subtotal * 0.1; // 10% tax
   const total = subtotal + shipping + tax;
   
@@ -237,23 +270,29 @@ async function checkTransactionStatus(transactionId) {
           Order Summary
         </Typography>
         {cartItems.map((item) => (
-          <Box key={item.id} sx={{ display: 'flex', mb: 2, alignItems: 'center' }}>
+          <Box key={item._id} sx={{ display: 'flex', mb: 2, alignItems: 'center' }}>
             <Box 
               component="img" 
-              src={item.image || "/placeholder-product.png"} 
+              src={item.image || "/images/cards.png"} 
               alt={item.name} 
               sx={{ 
                 width: 60, 
                 height: 60, 
                 objectFit: 'contain',
                 mr: 2,
-                border: '1px solid #eee'
+                border: '1px solid #eee',
+                borderRadius: 1
               }} 
             />
             <Box sx={{ flexGrow: 1 }}>
-              <Typography variant="body1">{item.name}</Typography>
+              <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                {item.name}
+              </Typography>
               <Typography variant="body2" color="text.secondary">
                 Quantity: {item.quantity}
+              </Typography>
+              <Typography variant="body2" color="primary">
+                {formatPrice(item.price)} each
               </Typography>
             </Box>
             <Box>
@@ -275,7 +314,7 @@ async function checkTransactionStatus(transactionId) {
           <Typography variant="body1">{formatPrice(shipping)}</Typography>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="body1">Tax</Typography>
+          <Typography variant="body1">Tax (10%)</Typography>
           <Typography variant="body1">{formatPrice(tax)}</Typography>
         </Box>
         
@@ -283,7 +322,7 @@ async function checkTransactionStatus(transactionId) {
         
         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
           <Typography variant="h6">Total</Typography>
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+          <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
             {formatPrice(total)}
           </Typography>
         </Box>
@@ -517,8 +556,12 @@ async function checkTransactionStatus(transactionId) {
       shippingInfo,
       paymentMethod,
       cartItems,
-      total
+      total,
+      orderId: orderRef
     });
+    
+    // Clear the cart after successful order
+    clearCart();
     
     // Navigate to order confirmation or show success message
     setActiveStep(activeStep + 1);
@@ -542,17 +585,28 @@ async function checkTransactionStatus(transactionId) {
       {activeStep === steps.length ? (
         <Paper variant="outlined" sx={{ p: 3, textAlign: 'center' }}>
           <Typography variant="h5" gutterBottom>
-            Thank you for your order.
+            Thank you for your order!
           </Typography>
-          <Typography variant="subtitle1">
-            Your order number is #12345. We will send you an email confirmation,
+          <Typography variant="subtitle1" sx={{ mb: 2 }}>
+            Your order number is #{orderRef}. We will send you an email confirmation,
             and will notify you when your order has shipped.
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Order Total: {formatPrice(total)}
           </Typography>
           <Button 
             variant="contained" 
             color="primary" 
-            sx={{ mt: 3 }}
-            onClick={() => window.location.href = '/'}
+            sx={{ mt: 2, mr: 2 }}
+            onClick={() => navigate('/mainmenu')}
+          >
+            Continue Shopping
+          </Button>
+          <Button 
+            variant="outlined" 
+            color="primary" 
+            sx={{ mt: 2 }}
+            onClick={() => navigate('/')}
           >
             Return to Home
           </Button>
@@ -573,8 +627,9 @@ async function checkTransactionStatus(transactionId) {
                 variant="contained"
                 color="primary"
                 onClick={handlePlaceOrder}
+                disabled={paymentMethod === 'vietqr' && !isPaymentVerified}
               >
-                Place order
+                Place Order
               </Button>
             ) : (
               <Button
@@ -589,7 +644,7 @@ async function checkTransactionStatus(transactionId) {
         </Paper>
       )}
       
-      {/* Order Summary Card - always visible */}
+      {/* Order Summary Card - always visible with real cart data */}
       <Card sx={{ mt: 3 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
@@ -619,5 +674,4 @@ async function checkTransactionStatus(transactionId) {
     </Container>
     </Base>
   );
-
 }
