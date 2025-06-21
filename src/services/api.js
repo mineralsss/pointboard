@@ -6,7 +6,7 @@ class ApiService {
     const apiUrl =
       import.meta.env?.VITE_API_URL ||
       (typeof process !== "undefined" && process.env?.REACT_APP_API_URL) ||
-      "/api";
+      "/api/v1";
 
     this.axios = axios.create({
       baseURL: apiUrl,
@@ -27,19 +27,32 @@ class ApiService {
 
   async register(userData) {
     try {
-      const response = await this.axios.post("/auth/register", userData);
+      // CORRECT - Let axios handle JSON conversion
+      const response = await this.axios.post("/auth/register", userData, {
+        headers: {
+          "Content-Type": "application/json",
+          "X-HTTP-Method-Override": "POST",
+        },
+      });
       return response.data;
     } catch (error) {
-      // Don't handle the error here - let components handle it
       throw error;
     }
   }
 
   async login(credentials) {
     try {
-      const response = await this.axios.post("/auth/login", credentials);
+      console.log("Sending login credentials:", credentials);
+
+      const response = await this.axios.post("/auth/login", credentials, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
       return response.data;
     } catch (error) {
+      console.log("Login error response:", error.response?.data);
+      console.log("Login error status:", error.response?.status);
       throw error;
     }
   }

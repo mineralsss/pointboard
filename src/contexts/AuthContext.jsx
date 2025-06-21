@@ -1,12 +1,31 @@
 import React, { createContext, useState, useEffect, useContext } from "react";
 import apiService from "../services/api";
-
 export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // This is correct
   const [error, setError] = useState(null);
+
+  // Fix the useEffect - use setLoading instead of setIsLoading
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
+    
+    if (token && userData) {
+      try {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+        console.log("User data loaded from localStorage:", parsedUser);
+      } catch (error) {
+        console.error("Error parsing user data:", error);
+        // Clear invalid data
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+    }
+    setLoading(false); // Fix: use setLoading instead of setIsLoading
+  }, []);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -51,23 +70,25 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     try {
       const response = await apiService.login(credentials);
-      if (response.token) {
-        localStorage.setItem("token", response.token);
-        if (response.user) {
-          setUser(response.user);
-        } else {
-          // Try to fetch user data if not included in login response
-          loadUser();
+      
+      if (response.success) {
+        const token = response.data?.accessToken; // Fix: use accessToken
+        const user = response.data?.userData;
+        
+        if (token && user) {
+          localStorage.setItem("token", token);
+          localStorage.setItem("user", JSON.stringify(user));
+          setUser(user);
+          console.log("User data set:", user);
         }
-        return { success: true };
+      } else {
+        throw new Error(response.message || "Login failed");
       }
-      return { success: false, message: "Login failed" };
-    } catch (err) {
-      console.error("Login error:", err);
-      return {
-        success: false,
-        message: err.response?.data?.message || "Login failed",
-      };
+      
+      return response;
+    } catch (error) {
+      console.error("Login error:", error);
+      throw error;
     }
   };
 

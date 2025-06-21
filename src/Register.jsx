@@ -120,63 +120,29 @@ function Register() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const newErrors = validateForm();
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-
-    setIsLoading(true);
-    setErrors({});
     setGeneralError("");
 
+    const isValid = validateForm();
+    if (!isValid) return;
+
+    setIsLoading(true);
     try {
-      // Remove confirmPassword from the data sent to API
       const { confirmPassword, ...registerData } = formData;
 
-      // Call the register function from AuthContext
-      await register(registerData);
-      
-      // If successful, navigate to login page
-      navigate("/login");
-    } catch (error) {
-      console.error('Registration error:', error);
-      
-      // Extract error details from the axios error response
-      if (error.response && error.response.data) {
-        const { data } = error.response;
-        
-        // Check for specific error types
-        if (data.errorType === 'validation_error' && data.errors) {
-          // Set each field error individually
-          setErrors(data.errors);
-        } else if (data.errorType === 'duplicate_email') {
-          setErrors({ email: data.message || 'Email này đã được sử dụng. Vui lòng sử dụng email khác.' });
-        } else if (data.errorType === 'duplicate_phone') {
-          setErrors({ phone: data.message || 'Số điện thoại này đã được sử dụng. Vui lòng sử dụng số khác.' });
-        } else if (data.code === 11000 || data.name === 'MongoError' || data.name === 'MongoServerError') {
-          // MongoDB duplicate key error - try to determine which field
-          const errorMessage = JSON.stringify(data);
-          
-          if (errorMessage.includes('email')) {
-            setErrors({ email: 'Email này đã được sử dụng. Vui lòng sử dụng email khác.' });
-          } else if (errorMessage.includes('phone')) {
-            setErrors({ phone: 'Số điện thoại này đã được sử dụng. Vui lòng sử dụng số khác.' });
-          } else {
-            setGeneralError('Tài khoản này đã tồn tại.');
-          }
-        } else {
-          // For other types of errors
-          setGeneralError(data.message || 'Đăng ký thất bại. Vui lòng thử lại.');
-        }
-      } else if (error.request) {
-        // The request was made but no response was received
-        setGeneralError('Không nhận được phản hồi từ máy chủ. Vui lòng kiểm tra kết nối mạng.');
-      } else {
-        // For network errors or other issues
-        setGeneralError('Có lỗi xảy ra khi kết nối với máy chủ. Vui lòng thử lại sau.');
+      // Ensure phone has no spaces and remove any extra "+"
+      registerData.phone = registerData.phone.replace(/\D+/g, "");
+
+      // Convert DOB to match backend format: 2000-12-03T00:00:00.000+00:00
+      if (registerData.dob) {
+        const date = new Date(registerData.dob);
+        registerData.dob = date.toISOString().replace('Z', '+00:00');
       }
+
+      await register(registerData);
+      navigate("/login", { state: { message: "Registration successful!" } });
+    } catch (error) {
+      setGeneralError("Registration failed. Please try again.");
+      console.error("Registration error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -360,7 +326,7 @@ function Register() {
               sx={{ mt: 2 }}
               variant="outlined"
               disabled={isLoading}
-              placeholder="+84xxxxxxxxx"
+              placeholder="0xxxxxxxxxx"
             />
 
             <TextField

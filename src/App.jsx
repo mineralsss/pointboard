@@ -59,7 +59,7 @@ function AuthRoutes() {
       <Route path="/register" element={<Register />} />
       <Route 
         path="/mainmenu" 
-        element={isAuthenticated ? <MainMenu /> : <Navigate to="/login" />} 
+        element={<MainMenu />} 
       />
       <Route path="/checkout" element={<Checkout />} />
       {/* Add other routes as needed */}

@@ -1,5 +1,6 @@
 import * as React from "react";
 import { useState } from "react";
+import MainMenu from "./MainMenu";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -34,8 +35,9 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [generalError, setGeneralError] = useState(""); // Add this line
 
-  const { login } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
   const handleInputChange = (event) => {
@@ -83,20 +85,44 @@ function Login() {
 
     setIsLoading(true);
     setErrors({});
+    setGeneralError(""); // Reset general error
 
     try {
-      const result = await login(formData.email, formData.password);
+      const loginData = {
+        email: formData.email.trim(),
+        password: formData.password,
+      };
 
+      const result = await login(loginData);
+      console.log("Login successful:", result);
+      
+      // Don't check isAuthenticated/user here - they haven't updated yet
+      // Just check if the login was successful from the result
       if (result.success) {
-        // Redirect to home page on successful login
-        navigate("/");
+        // Extract user data from the correct location
+        const userData = result.data?.userData; // Fix: use userData instead of user
+        
+        if (userData) {
+          // Display logged in user info
+          const userName = userData.firstName && userData.lastName 
+            ? `${userData.firstName} ${userData.lastName}` 
+            : userData.email;
+          
+          console.log(`Logged in as: ${userName}`);
+          setGeneralError(""); // Clear any previous errors
+        }
+        
+        navigate("/mainmenu", { replace: true });
       } else {
-        setErrors({
-          submit: result.error || "Đăng nhập thất bại. Vui lòng thử lại.",
-        });
+        console.log("Login failed:", result.message);
+        setErrors({ submit: result.message || "Login failed" });
+        setGeneralError(result.message || "Login failed");
       }
+      
     } catch (error) {
-      setErrors({ submit: "Có lỗi xảy ra. Vui lòng thử lại." });
+      console.log("Login failed:", error.message);
+      setErrors({ submit: error.message || "Login failed" });
+      setGeneralError(error.message || "Login failed"); // Set general error
     } finally {
       setIsLoading(false);
     }
@@ -159,6 +185,11 @@ function Login() {
           {errors.submit && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {errors.submit}
+            </Alert>
+          )}
+          {generalError && ( // Add this block
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {generalError}
             </Alert>
           )}
 
