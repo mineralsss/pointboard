@@ -66,7 +66,7 @@ function AuthRoutes() {
         element={<MainMenu />} 
       />
       <Route path="/checkout" element={<Checkout />} />
-      <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/verify-email/:token" element={<VerifyEmail />} />
       {/* Add other routes as needed */}
     </Routes>
   );

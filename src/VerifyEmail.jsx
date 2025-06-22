@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
   Paper,
@@ -14,7 +14,7 @@ import Base from './base';
 import apiService from './services/api';
 
 function VerifyEmail() {
-  const [searchParams] = useSearchParams();
+  const { token } = useParams();
   const navigate = useNavigate();
   const [verificationStatus, setVerificationStatus] = useState('verifying'); // 'verifying', 'success', 'error'
   const [errorMessage, setErrorMessage] = useState('');
@@ -23,8 +23,6 @@ function VerifyEmail() {
   useEffect(() => {
     const verifyEmail = async () => {
       try {
-        const token = searchParams.get('token');
-        
         if (!token) {
           setVerificationStatus('error');
           setErrorMessage('Verification token is missing. Please check your email for the correct verification link.');
@@ -51,7 +49,7 @@ function VerifyEmail() {
     };
 
     verifyEmail();
-  }, [searchParams]);
+  }, [token]);
 
   const handleLoginClick = () => {
     navigate('/login');

@@ -98,7 +98,7 @@ class ApiService {
 
   async verifyEmail(token) {
     try {
-      const response = await this.axios.post("/auth/verify-email", { token });
+      const response = await this.axios.get(`/auth/verify-email/${token}`);
       return response.data;
     } catch (error) {
       console.error("verifyEmail error details:", {
