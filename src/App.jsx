@@ -5,6 +5,7 @@ import Login from "./Login";
 import MainMenu from "./MainMenu";
 import Register from "./Register";
 import Checkout from "./Checkout";
+import VerifyEmail from "./VerifyEmail";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { CartProvider } from './contexts/CartContext';
 import { CartUpdateProvider } from './contexts/CartUpdateContext';
@@ -24,33 +25,33 @@ function Home() {
 
 // Authentication check and navigation wrapper
 function AuthRoutes() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
   useEffect(() => {
     // If user is logged in and tries to access public pages, redirect to main menu
-    if (!isLoading && isAuthenticated) {
+    if (!loading && isAuthenticated) {
       const publicRoutes = ['/', '/login', '/register'];
       if (publicRoutes.includes(location.pathname)) {
         navigate('/mainmenu');
       }
     }
-  }, [isAuthenticated, isLoading, location.pathname, navigate]);
+  }, [isAuthenticated, loading, location.pathname, navigate]);
 
   // Optional: Handle redirects for protected routes
   useEffect(() => {
     // If user is not logged in and tries to access protected pages, redirect to login
-    if (!isLoading && !isAuthenticated) {
+    if (!loading && !isAuthenticated) {
       const protectedRoutes = ['/mainmenu'];
       if (protectedRoutes.includes(location.pathname)) {
         navigate('/login');
       }
     }
-  }, [isAuthenticated, isLoading, location.pathname, navigate]);
+  }, [isAuthenticated, loading, location.pathname, navigate]);
 
   // If still loading, show loading indicator
-  if (isLoading) {
+  if (loading) {
     return <div>Loading...</div>;
   }
   
@@ -65,6 +66,7 @@ function AuthRoutes() {
         element={<MainMenu />} 
       />
       <Route path="/checkout" element={<Checkout />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
       {/* Add other routes as needed */}
     </Routes>
   );

@@ -4,77 +4,49 @@ export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true); // This is correct
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fix the useEffect - use setLoading instead of setIsLoading
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    
-    if (token && userData) {
-      try {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-        console.log("User data loaded from localStorage:", parsedUser);
-      } catch (error) {
-        console.error("Error parsing user data:", error);
-        // Clear invalid data
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
-    }
-    setLoading(false); // Fix: use setLoading instead of setIsLoading
-  }, []);
-
+  // Single useEffect to handle user loading
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const token = localStorage.getItem("token");
-
-        if (!token) {
-          setLoading(false);
-          return;
-        }
-
-        // First try to get user from localStorage for immediate response
-        const localUser = apiService.getLocalUser();
-        if (localUser) {
-          setUser(localUser);
-          console.log("User data loaded from localStorage:", localUser);
-        }
-
-        // Then try to fetch fresh data from API (but don't block UI)
-        try {
-          if (typeof apiService.getUserData === "function") {
-            const data = await apiService.getUserData();
-            if (data && data.user) {
-              setUser(data.user);
-            }
-          } else if (typeof apiService.getUser === "function") {
-            const data = await apiService.getUser();
-            if (data) {
-              setUser(data);
-            }
-          } else if (typeof apiService.getUserProfile === "function") {
-            const data = await apiService.getUserProfile();
-            if (data) {
-              setUser(data);
-              // Update localStorage with fresh data
-              localStorage.setItem("user", JSON.stringify(data));
-            }
-          } else {
-            console.error("No user data method available in apiService");
+        const token = localStorage.getItem('token');
+        const userData = localStorage.getItem('user');
+        
+        if (token && userData) {
+          try {
+            const parsedUser = JSON.parse(userData);
+            setUser(parsedUser);
+          } catch (error) {
+            console.error("AuthContext: Error parsing user data:", error);
+            // Clear invalid data
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setUser(null);
           }
-        } catch (apiError) {
-          console.error("Failed to fetch fresh user data from API:", apiError);
-          // Don't clear existing user data, just log the error
-          // The user can still use the app with cached data
+        } else {
+          setUser(null);
+        }
+
+        // Try to fetch fresh data from API if we have a token
+        if (token) {
+          try {
+            if (typeof apiService.getUserProfile === "function") {
+              const data = await apiService.getUserProfile();
+              if (data) {
+                setUser(data);
+                localStorage.setItem("user", JSON.stringify(data));
+              }
+            }
+          } catch (apiError) {
+            console.error("AuthContext: Failed to fetch fresh user data from API:", apiError);
+            // Don't clear existing user data, just log the error
+          }
         }
       } catch (err) {
-        console.error("Failed to load user data:", err);
+        console.error("AuthContext: Failed to load user data:", err);
         setError(err);
-        // Don't clear user data on error, just log it
       } finally {
         setLoading(false);
       }

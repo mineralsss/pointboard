@@ -122,8 +122,12 @@ function Register() {
     event.preventDefault();
     setGeneralError("");
 
-    const isValid = validateForm();
-    if (!isValid) return;
+    const validationErrors = validateForm();
+    
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -142,7 +146,7 @@ function Register() {
       navigate("/login", { state: { message: "Registration successful!" } });
     } catch (error) {
       setGeneralError("Registration failed. Please try again.");
-      console.error("Registration error:", error);
+      console.error("Registration error in handleSubmit:", error);
     } finally {
       setIsLoading(false);
     }
@@ -210,7 +214,7 @@ function Register() {
 
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid xs={12} sm={6}>
                 <TextField
                   fullWidth
                   name="firstName"
@@ -223,7 +227,7 @@ function Register() {
                   disabled={isLoading}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid xs={12} sm={6}>
                 <TextField
                   fullWidth
                   name="lastName"
@@ -253,7 +257,7 @@ function Register() {
             />
 
             <Grid container spacing={2} sx={{ mt: 0 }}>
-              <Grid item xs={12} sm={6}>
+              <Grid xs={12} sm={6}>
                 <TextField
                   fullWidth
                   name="password"
@@ -280,7 +284,7 @@ function Register() {
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid xs={12} sm={6}>
                 <TextField
                   fullWidth
                   name="confirmPassword"
@@ -345,7 +349,7 @@ function Register() {
             />
 
             <Grid container spacing={2} sx={{ mt: 0 }}>
-              <Grid item xs={12} sm={6}>
+              <Grid xs={12} sm={6}>
                 <TextField
                   fullWidth
                   name="dob"

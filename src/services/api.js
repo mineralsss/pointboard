@@ -95,6 +95,21 @@ class ApiService {
       return null;
     }
   }
+
+  async verifyEmail(token) {
+    try {
+      const response = await this.axios.post("/auth/verify-email", { token });
+      return response.data;
+    } catch (error) {
+      console.error("verifyEmail error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
+  }
 }
 
 export default new ApiService();

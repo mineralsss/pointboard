@@ -349,17 +349,18 @@ const Login = () => {
                 >
                   Chưa có tài khoản?{" "}
                   <Link
-                    component="button"
-                    type="button"
-                    onClick={() => navigate("/register")}
-                    sx={{
+                    to="/register"
+                    style={{
                       color: "#39095D",
                       textDecoration: "none",
                       fontWeight: 600,
                       cursor: "pointer",
-                      "&:hover": {
-                        textDecoration: "underline",
-                      },
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.textDecoration = "underline";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.textDecoration = "none";
                     }}
                   >
                     Đăng ký ngay
