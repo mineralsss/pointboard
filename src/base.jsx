@@ -28,8 +28,6 @@ import RemoveIcon from "@mui/icons-material/Remove";
 
 // Global styles
 const GlobalStyles = styled("style")({
-  [`@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Jersey+10&family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');`]:
-    {},
   [`body`]: {
     margin: 0,
     padding: 0,
@@ -44,6 +42,11 @@ const GlobalStyles = styled("style")({
     fontFamily: "'Jersey 10', sans-serif", // Class for Jersey font
   },
 });
+
+// Add font import at the top level
+const FontImport = styled("style")(`
+  @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Jersey+10&family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
+`);
 
 const Search = styled("div")(({ theme }) => ({
   position: "relative",
@@ -288,6 +291,7 @@ function Base({ children }) {
     <React.Fragment>
       <CssBaseline />
       <GlobalStyles />
+      <FontImport />
 
       <div
         style={{

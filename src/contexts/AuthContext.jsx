@@ -37,28 +37,44 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
-        // Check which user data method exists and use it
-        if (typeof apiService.getUserData === "function") {
-          const data = await apiService.getUserData();
-          if (data && data.user) {
-            setUser(data.user);
+        // First try to get user from localStorage for immediate response
+        const localUser = apiService.getLocalUser();
+        if (localUser) {
+          setUser(localUser);
+          console.log("User data loaded from localStorage:", localUser);
+        }
+
+        // Then try to fetch fresh data from API (but don't block UI)
+        try {
+          if (typeof apiService.getUserData === "function") {
+            const data = await apiService.getUserData();
+            if (data && data.user) {
+              setUser(data.user);
+            }
+          } else if (typeof apiService.getUser === "function") {
+            const data = await apiService.getUser();
+            if (data) {
+              setUser(data);
+            }
+          } else if (typeof apiService.getUserProfile === "function") {
+            const data = await apiService.getUserProfile();
+            if (data) {
+              setUser(data);
+              // Update localStorage with fresh data
+              localStorage.setItem("user", JSON.stringify(data));
+            }
+          } else {
+            console.error("No user data method available in apiService");
           }
-        } else if (typeof apiService.getUser === "function") {
-          const data = await apiService.getUser();
-          if (data) {
-            setUser(data);
-          }
-        } else if (typeof apiService.getUserProfile === "function") {
-          const data = await apiService.getUserProfile();
-          if (data) {
-            setUser(data);
-          }
-        } else {
-          console.error("No user data method available in apiService");
+        } catch (apiError) {
+          console.error("Failed to fetch fresh user data from API:", apiError);
+          // Don't clear existing user data, just log the error
+          // The user can still use the app with cached data
         }
       } catch (err) {
         console.error("Failed to load user data:", err);
         setError(err);
+        // Don't clear user data on error, just log it
       } finally {
         setLoading(false);
       }

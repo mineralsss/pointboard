@@ -46,6 +46,15 @@ const sampleProducts = [
     description: 'Game thẻ bài vui nhộn',
     category: 'card',
     stock: 20
+  },
+  {
+    _id: '4',
+    name: 'Test Product 5K',
+    price: 5000,
+    image: '/images/cards.png',
+    description: 'Sản phẩm thử nghiệm giá 5.000 VND',
+    category: 'test',
+    stock: 99
   }
 ];
 
@@ -141,7 +150,7 @@ function ProductsContent() {
           const isInCart = cartQuantity > 0;
           
           return (
-            <Grid item xs={12} sm={6} md={4} key={product._id}>
+            <Grid xs={12} sm={6} md={4} key={product._id}>
               <Card 
                 sx={{ 
                   backgroundColor: isInCart 

@@ -59,10 +59,40 @@ class ApiService {
 
   async getUserProfile() {
     try {
-      const response = await this.axios.get("/users/profile");
+      const response = await this.axios.get("/users/me");
       return response.data;
     } catch (error) {
+      console.error("getUserProfile error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      // If it's a 500 error, it's likely a server issue
+      if (error.response?.status === 500) {
+        console.warn("Server error (500) when fetching user profile. This may be a temporary server issue.");
+      }
+      
       throw error;
+    }
+  }
+
+  // Check if user is authenticated locally (without API call)
+  isAuthenticated() {
+    const token = localStorage.getItem("token");
+    const user = localStorage.getItem("user");
+    return !!(token && user);
+  }
+
+  // Get user data from localStorage (without API call)
+  getLocalUser() {
+    try {
+      const userData = localStorage.getItem("user");
+      return userData ? JSON.parse(userData) : null;
+    } catch (error) {
+      console.error("Error parsing local user data:", error);
+      return null;
     }
   }
 }

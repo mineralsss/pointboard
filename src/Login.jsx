@@ -1,14 +1,14 @@
-import * as React from "react";
-import { useState } from "react";
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import Container from '@mui/material/Container';
+import {react} from "react";
 import MainMenu from "./MainMenu";
-import { useNavigate } from "react-router-dom";
 import {
   Box,
   Paper,
   TextField,
   Button,
   Typography,
-  Link,
   Divider,
   IconButton,
   InputAdornment,
@@ -26,7 +26,7 @@ import {
 import Base from "./base";
 import { useAuth } from "./contexts/AuthContext";
 
-function Login() {
+const Login = () => {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -140,246 +140,236 @@ function Login() {
 
   return (
     <Base>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "calc(100vh - 200px)",
-          padding: 2,
-        }}
-      >
-        <Paper
-          elevation={8}
+      <Container component="main" maxWidth="sm">
+        <Box
           sx={{
-            padding: 4,
-            maxWidth: 400,
-            width: "100%",
-            borderRadius: 3,
-            backgroundColor: "#fff",
+            marginTop: 8,
+            marginBottom: 8,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
           }}
         >
-          <Box sx={{ textAlign: "center", mb: 3 }}>
-            <Typography
-              variant="h4"
-              sx={{
-                fontFamily: "'Raleway', sans-serif",
-                fontWeight: 700,
-                color: "#39095D",
-                mb: 1,
-              }}
-            >
-              Đăng Nhập
-            </Typography>
-            <Typography
-              variant="body1"
-              sx={{
-                color: "#666",
-                fontFamily: "'Inter', sans-serif",
-              }}
-            >
-              Chào mừng bạn trở lại PointBoard!
-            </Typography>
-          </Box>
-
-          {errors.submit && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {errors.submit}
-            </Alert>
-          )}
-          {generalError && ( // Add this block
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {generalError}
-            </Alert>
-          )}
-
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-            <TextField
-              fullWidth
-              name="email"
-              label="Email"
-              type="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              error={!!errors.email}
-              helperText={errors.email}
-              sx={{ mb: 2 }}
-              variant="outlined"
-              disabled={isLoading}
-            />
-
-            <TextField
-              fullWidth
-              name="password"
-              label="Mật khẩu"
-              type={showPassword ? "text" : "password"}
-              value={formData.password}
-              onChange={handleInputChange}
-              error={!!errors.password}
-              helperText={errors.password}
-              sx={{ mb: 2 }}
-              variant="outlined"
-              disabled={isLoading}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                      disabled={isLoading}
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                mb: 3,
-              }}
-            >
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    name="rememberMe"
-                    checked={formData.rememberMe}
-                    onChange={handleInputChange}
-                    disabled={isLoading}
-                    sx={{
-                      color: "#39095D",
-                      "&.Mui-checked": {
-                        color: "#39095D",
-                      },
-                    }}
-                  />
-                }
-                label="Ghi nhớ đăng nhập"
-                sx={{ fontFamily: "'Inter', sans-serif" }}
-              />
-              <Link
-                href="#"
-                sx={{
-                  color: "#39095D",
-                  textDecoration: "none",
-                  fontFamily: "'Inter', sans-serif",
-                  "&:hover": {
-                    textDecoration: "underline",
-                  },
-                }}
-              >
-                Quên mật khẩu?
-              </Link>
-            </Box>
-
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              disabled={isLoading}
-              sx={{
-                mb: 2,
-                py: 1.5,
-                backgroundColor: "#39095D",
-                fontFamily: "'Inter', sans-serif",
-                fontWeight: 600,
-                fontSize: "1rem",
-                "&:hover": {
-                  backgroundColor: "#4c1275",
-                },
-                "&:disabled": {
-                  backgroundColor: "#ccc",
-                },
-              }}
-            >
-              {isLoading ? (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <CircularProgress size={20} color="inherit" />
-                  Đang đăng nhập...
-                </Box>
-              ) : (
-                "Đăng Nhập"
-              )}
-            </Button>
-
-            <Divider sx={{ my: 2 }}>
-              <Typography variant="body2" sx={{ color: "#666", px: 2 }}>
-                Hoặc
-              </Typography>
-            </Divider>
-
-            <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<Google />}
-                onClick={handleGoogleLogin}
-                disabled={isLoading}
-                sx={{
-                  py: 1.5,
-                  borderColor: "#ddd",
-                  color: "#666",
-                  fontFamily: "'Inter', sans-serif",
-                  "&:hover": {
-                    borderColor: "#39095D",
-                    backgroundColor: "rgba(57, 9, 93, 0.04)",
-                  },
-                }}
-              >
-                Google
-              </Button>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<Facebook />}
-                onClick={handleFacebookLogin}
-                disabled={isLoading}
-                sx={{
-                  py: 1.5,
-                  borderColor: "#ddd",
-                  color: "#666",
-                  fontFamily: "'Inter', sans-serif",
-                  "&:hover": {
-                    borderColor: "#39095D",
-                    backgroundColor: "rgba(57, 9, 93, 0.04)",
-                  },
-                }}
-              >
-                Facebook
-              </Button>
-            </Box>
-
-            <Box sx={{ textAlign: "center" }}>
+          <Paper
+            elevation={3}
+            sx={{
+              padding: 4,
+              width: '100%',
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(10px)',
+            }}
+          >
+            <Box sx={{ textAlign: "center", mb: 3 }}>
               <Typography
-                variant="body2"
-                sx={{ color: "#666", fontFamily: "'Inter', sans-serif" }}
+                variant="h4"
+                sx={{
+                  fontFamily: "'Raleway', sans-serif",
+                  fontWeight: 700,
+                  color: "#39095D",
+                  mb: 1,
+                }}
               >
-                Chưa có tài khoản?{" "}
+                Đăng Nhập
+              </Typography>
+              <Typography
+                variant="body1"
+                sx={{
+                  color: "#666",
+                  fontFamily: "'Inter', sans-serif",
+                }}
+              >
+                Chào mừng bạn trở lại PointBoard!
+              </Typography>
+            </Box>
+
+            {errors.submit && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {errors.submit}
+              </Alert>
+            )}
+            {generalError && ( // Add this block
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {generalError}
+              </Alert>
+            )}
+
+            <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+              <TextField
+                fullWidth
+                name="email"
+                label="Email"
+                type="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                error={!!errors.email}
+                helperText={errors.email}
+                sx={{ mb: 2 }}
+                variant="outlined"
+                disabled={isLoading}
+              />
+
+              <TextField
+                fullWidth
+                name="password"
+                label="Mật khẩu"
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={handleInputChange}
+                error={!!errors.password}
+                helperText={errors.password}
+                sx={{ mb: 2 }}
+                variant="outlined"
+                disabled={isLoading}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                        disabled={isLoading}
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  mb: 3,
+                }}
+              >
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      name="rememberMe"
+                      checked={formData.rememberMe}
+                      onChange={handleInputChange}
+                      disabled={isLoading}
+                      sx={{
+                        color: "#39095D",
+                        "&.Mui-checked": {
+                          color: "#39095D",
+                        },
+                      }}
+                    />
+                  }
+                  label="Ghi nhớ đăng nhập"
+                  sx={{ fontFamily: "'Inter', sans-serif" }}
+                />
                 <Link
-                  component="button"
-                  type="button"
-                  onClick={() => navigate("/register")}
+                  to="/reset-password"
+                  state={{ email: formData.email }}
+                  style={{
+                    color: '#491E6C',
+                    textDecoration: 'none',
+                    fontSize: '14px'
+                  }}
+                >
+                  Quên mật khẩu?
+                </Link>
+              </Box>
+
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                disabled={isLoading}
+                sx={{
+                  mt: 3,
+                  mb: 2,
+                  backgroundColor: '#491E6C',
+                  '&:hover': {
+                    backgroundColor: '#5D2E7A',
+                  },
+                }}
+              >
+                {isLoading ? (
+                  <CircularProgress size={24} color="inherit" />
+                ) : (
+                  'Đăng Nhập'
+                )}
+              </Button>
+
+              <Divider sx={{ my: 2 }}>
+                <Typography variant="body2" sx={{ color: "#666", px: 2 }}>
+                  Hoặc
+                </Typography>
+              </Divider>
+
+              <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<Google />}
+                  onClick={handleGoogleLogin}
+                  disabled={isLoading}
                   sx={{
-                    color: "#39095D",
-                    textDecoration: "none",
-                    fontWeight: 600,
-                    cursor: "pointer",
+                    py: 1.5,
+                    borderColor: "#ddd",
+                    color: "#666",
+                    fontFamily: "'Inter', sans-serif",
                     "&:hover": {
-                      textDecoration: "underline",
+                      borderColor: "#39095D",
+                      backgroundColor: "rgba(57, 9, 93, 0.04)",
                     },
                   }}
                 >
-                  Đăng ký ngay
-                </Link>
-              </Typography>
+                  Google
+                </Button>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<Facebook />}
+                  onClick={handleFacebookLogin}
+                  disabled={isLoading}
+                  sx={{
+                    py: 1.5,
+                    borderColor: "#ddd",
+                    color: "#666",
+                    fontFamily: "'Inter', sans-serif",
+                    "&:hover": {
+                      borderColor: "#39095D",
+                      backgroundColor: "rgba(57, 9, 93, 0.04)",
+                    },
+                  }}
+                >
+                  Facebook
+                </Button>
+              </Box>
+
+              <Box sx={{ textAlign: "center" }}>
+                <Typography
+                  variant="body2"
+                  sx={{ color: "#666", fontFamily: "'Inter', sans-serif" }}
+                >
+                  Chưa có tài khoản?{" "}
+                  <Link
+                    component="button"
+                    type="button"
+                    onClick={() => navigate("/register")}
+                    sx={{
+                      color: "#39095D",
+                      textDecoration: "none",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      "&:hover": {
+                        textDecoration: "underline",
+                      },
+                    }}
+                  >
+                    Đăng ký ngay
+                  </Link>
+                </Typography>
+              </Box>
             </Box>
-          </Box>
-        </Paper>
-      </Box>
+          </Paper>
+        </Box>
+      </Container>
     </Base>
   );
 }

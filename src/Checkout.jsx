@@ -118,17 +118,17 @@ export default function Checkout() {
   
   // Calculate totals using real cart data
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const shipping = 30000; // 30,000 VND shipping
+  const shipping = 0; // Shipping fee set to 0
   const tax = subtotal * 0.1; // 10% tax
   const total = subtotal + shipping + tax;
   
   // Generate order reference for payment description
-  const orderRef = orderId || `ORDER${Date.now().toString().slice(-6)}`;
+  const orderRef = orderId || `PointBoardA${Date.now().toString().slice(-6)}`;
   
   // Set order ID once when component mounts
   useEffect(() => {
     if (!orderId) {
-      setOrderId(`ORDER${Date.now().toString().slice(-6)}`);
+      setOrderId(`PointBoardA${Date.now().toString().slice(-6)}`);
     }
   }, [orderId]);
   
@@ -138,7 +138,7 @@ export default function Checkout() {
     const amount = Math.round(total).toString();
     
     // Create a payment description
-    const description = `PointBoard-${orderRef}`;
+    const description = orderRef;
     
     // Encode the description for URL
     const encodedDescription = encodeURIComponent(description);
@@ -188,70 +188,60 @@ export default function Checkout() {
  * @returns {Promise<Object>} - Result of the transaction verification
  */
 async function checkTransactionStatus(transactionId) {
-  const MAX_VERIFICATION_ATTEMPTS = 10;
+  const MAX_POLLING_HOURS = 3;
   const RETRY_DELAY_MS = 2000; // 2 seconds between attempts
-  let attempts = 0;
-  
-  while (attempts < MAX_VERIFICATION_ATTEMPTS) {
+  const startTime = Date.now();
+
+  while (true) {
+    // Stop polling if 3 hours have passed
+    const elapsedHours = (Date.now() - startTime) / (1000 * 60 * 60);
+    if (elapsedHours > MAX_POLLING_HOURS) {
+      return {
+        verified: false,
+        error: `Could not verify payment after 3 hours. Please try again or contact support.`
+      };
+    }
     try {
-      // Update UI to show current attempt
-      attempts++;
-      
       const response = await fetch(`/api/transactions/verify/${transactionId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
         }
       });
-      
       if (!response.ok) {
         throw new Error(`Server responded with status: ${response.status}`);
       }
-      
       const data = await response.json();
-      
-      // If transaction exists and is completed/successful
-      if (data.exists && (data.status === 'completed' || data.status === 'success')) {
-        console.log(`Transaction ${transactionId} verified successfully`);
+      console.log('Transaction data:', data); 
+      // If transaction exists and is completed/successful or received
+      if (
+        data.exists &&
+        (data.status === 'received' || data.status === 'success' || data.status === 'completed')
+      ) {
+        // No transactionId check anymore
+        // Check amount (use data.amount for new API)
+        if (
+          (data.transferAmount !== undefined && data.transferAmount !== Math.round(total)) ||
+          (data.amount !== undefined && data.amount !== Math.round(total))
+        ) {
+          setPaymentError('Payment amount does not match.');
+          await sleep(RETRY_DELAY_MS);
+          continue;
+        }
+        // All checks passed
         return { verified: true, data: data };
       }
-      
       // If transaction exists but failed
       if (data.exists && (data.status === 'failed' || data.status === 'rejected')) {
-        console.log(`Transaction ${transactionId} found but has failed status`);
         return { verified: false, data: data };
       }
-      
-      // If transaction exists but is in received state
-      if (data.exists && data.status === 'received') {
-        console.log(`Transaction ${transactionId} is in received state, waiting for processing`);
-      } else {
-        console.log(`Transaction ${transactionId} not found or still pending, waiting to retry...`);
-      }
-      
-      // Show current attempt in UI
-      setPaymentError(`Verifying payment... Attempt ${attempts}/${MAX_VERIFICATION_ATTEMPTS}`);
-      
       // Not found or still pending, wait before retrying
-      if (attempts < MAX_VERIFICATION_ATTEMPTS) {
-        await sleep(RETRY_DELAY_MS);
-      }
+      await sleep(RETRY_DELAY_MS);
     } catch (error) {
-      console.error(`Verification attempt ${attempts} failed:`, error);
-      
-      // Wait before retrying
-      if (attempts < MAX_VERIFICATION_ATTEMPTS) {
-        await sleep(RETRY_DELAY_MS);
-      }
+      console.error(`Verification polling failed:`, error);
+      await sleep(RETRY_DELAY_MS);
     }
   }
-  
-  // After MAX_VERIFICATION_ATTEMPTS, conclude transaction couldn't be verified
-  console.error(`Could not verify transaction ${transactionId} after ${MAX_VERIFICATION_ATTEMPTS} attempts`);
-  return { 
-    verified: false, 
-    error: "Could not verify payment after maximum retry attempts. It may still be processing, or you may need to complete the payment." 
-  };
 }
   
   // Clean up polling interval on component unmount
@@ -262,6 +252,14 @@ async function checkTransactionStatus(transactionId) {
       }
     };
   }, [pollingInterval]);
+  
+  // Remove the Verify Payment button and run verification automatically
+  useEffect(() => {
+    if (activeStep === 2 && paymentMethod === 'vietqr' && !isPaymentVerified && !isCheckingPayment) {
+      verifyPayment();
+    }
+    // eslint-disable-next-line
+  }, [activeStep, paymentMethod]);
   
   const renderOrderReview = () => (
     <Grid container spacing={3}>
@@ -445,7 +443,6 @@ async function checkTransactionStatus(transactionId) {
           </RadioGroup>
         </FormControl>
       </Grid>
-      
       {/* VietQR payment section */}
       {paymentMethod === 'vietqr' && (
         <Grid item xs={12}>
@@ -465,7 +462,6 @@ async function checkTransactionStatus(transactionId) {
             <Typography variant="body2" sx={{ mb: 2 }}>
               Amount: {formatPrice(total)} • Reference: {orderRef}
             </Typography>
-            
             <Box sx={{ 
               maxWidth: 300, 
               margin: '0 auto', 
@@ -479,34 +475,22 @@ async function checkTransactionStatus(transactionId) {
                 style={{ width: '100%', height: 'auto' }}
               />
             </Box>
-            
             <Typography variant="body2" sx={{ mt: 2 }}>
               Please scan this code using your banking app and complete the payment.
               <br />Your order will be processed once payment is confirmed.
             </Typography>
-            
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={verifyPayment}
-              disabled={isCheckingPayment || isPaymentVerified}
-              sx={{ mt: 2 }}
-            >
-              {isCheckingPayment ? (
+            {/* Progress and result display only */}
+            {isCheckingPayment && (
+              <Box sx={{ mt: 2 }}>
                 <CircularProgress size={24} color="inherit" />
-              ) : isPaymentVerified ? (
-                'Payment Verified ✓'
-              ) : (
-                'Verify Payment'
-              )}
-            </Button>
-            
+                <Typography variant="body2" sx={{ mt: 1 }}>Verifying payment...</Typography>
+              </Box>
+            )}
             {isPaymentVerified && (
               <Alert severity="success" sx={{ mt: 2 }}>
                 Payment verified successfully! You can now complete your order.
               </Alert>
             )}
-            
             {paymentError && (
               <Alert severity="error" sx={{ mt: 2 }}>
                 {paymentError}
@@ -515,7 +499,6 @@ async function checkTransactionStatus(transactionId) {
           </Paper>
         </Grid>
       )}
-      
       {/* Cash on delivery section */}
       {paymentMethod === 'cash' && (
         <Grid item xs={12}>
