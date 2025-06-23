@@ -27,6 +27,8 @@ import Base from "./base";
 import { useAuth } from "./contexts/AuthContext";
 
 const Login = () => {
+  console.log('🔵 Login component rendered');
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -35,13 +37,41 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [generalError, setGeneralError] = useState(""); // Add this line
+  const [generalError, setGeneralError] = useState("");
 
   const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
+  // Console log component mount and state changes
+  useEffect(() => {
+    console.log('🔵 Login component mounted');
+    console.log('🔵 Initial auth state:', { isAuthenticated, user });
+    
+    return () => {
+      console.log('🔵 Login component unmounted');
+    };
+  }, []);
+
+  useEffect(() => {
+    console.log('🔵 Form data changed:', formData);
+  }, [formData]);
+
+  useEffect(() => {
+    console.log('🔵 Auth state changed:', { isAuthenticated, user });
+  }, [isAuthenticated, user]);
+
+  useEffect(() => {
+    console.log('🔵 Loading state changed:', isLoading);
+  }, [isLoading]);
+
+  useEffect(() => {
+    console.log('🔵 Errors changed:', errors);
+  }, [errors]);
+
   const handleInputChange = (event) => {
     const { name, value, checked } = event.target;
+    console.log(`🔵 Input changed - ${name}:`, name === "rememberMe" ? checked : value);
+    
     setFormData((prev) => ({
       ...prev,
       [name]: name === "rememberMe" ? checked : value,
@@ -49,6 +79,7 @@ const Login = () => {
 
     // Clear error when user starts typing
     if (errors[name]) {
+      console.log(`🔵 Clearing error for field: ${name}`);
       setErrors((prev) => ({
         ...prev,
         [name]: "",
@@ -57,6 +88,7 @@ const Login = () => {
   };
 
   const validateForm = () => {
+    console.log('🔵 Validating form with data:', formData);
     const newErrors = {};
 
     if (!formData.email) {
@@ -71,18 +103,24 @@ const Login = () => {
       newErrors.password = "Mật khẩu phải có ít nhất 6 ký tự";
     }
 
+    console.log('🔵 Validation errors:', newErrors);
     return newErrors;
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    console.log('🔵 Form submission started');
+    console.log('🔵 Form data at submission:', formData);
+    
     const newErrors = validateForm();
 
     if (Object.keys(newErrors).length > 0) {
+      console.log('🔴 Form validation failed:', newErrors);
       setErrors(newErrors);
       return;
     }
 
+    console.log('🔵 Form validation passed, proceeding with login');
     setIsLoading(true);
     setErrors({});
     setGeneralError(""); // Reset general error
@@ -93,12 +131,14 @@ const Login = () => {
         password: formData.password,
       };
 
+      console.log('🔵 Calling login function with data:', { ...loginData, password: '***' });
       const result = await login(loginData);
-      console.log("Login successful:", result);
+      console.log("🟢 Login function returned:", result);
       
       // Don't check isAuthenticated/user here - they haven't updated yet
       // Just check if the login was successful from the result
       if (result.success) {
+        console.log('🟢 Login successful');
         // Extract user data from the correct location
         const userData = result.data?.userData; // Fix: use userData instead of user
         
@@ -108,35 +148,65 @@ const Login = () => {
             ? `${userData.firstName} ${userData.lastName}` 
             : userData.email;
           
-          console.log(`Logged in as: ${userName}`);
+          console.log(`🟢 Logged in as: ${userName}`);
+          console.log('🟢 User data:', userData);
           setGeneralError(""); // Clear any previous errors
         }
         
+        console.log('🔵 Navigating to /mainmenu');
         navigate("/mainmenu", { replace: true });
       } else {
-        console.log("Login failed:", result.message);
+        console.log("🔴 Login failed:", result.message);
         setErrors({ submit: result.message || "Login failed" });
         setGeneralError(result.message || "Login failed");
       }
       
     } catch (error) {
-      console.log("Login failed:", error.message);
+      console.log("🔴 Login error caught:", error);
+      console.log("🔴 Error message:", error.message);
+      console.log("🔴 Error stack:", error.stack);
       setErrors({ submit: error.message || "Login failed" });
       setGeneralError(error.message || "Login failed"); // Set general error
     } finally {
+      console.log('🔵 Login process completed, setting loading to false');
       setIsLoading(false);
     }
   };
 
   const handleGoogleLogin = () => {
-    console.log("Google login clicked");
+    console.log("🔵 Google login clicked");
     // Implement Google login here
   };
 
   const handleFacebookLogin = () => {
-    console.log("Facebook login clicked");
+    console.log("🔵 Facebook login clicked");
     // Implement Facebook login here
   };
+
+  const handlePasswordVisibilityToggle = () => {
+    console.log('🔵 Password visibility toggled:', !showPassword);
+    setShowPassword(!showPassword);
+  };
+
+  const handleForgotPasswordClick = () => {
+    console.log('🔵 Forgot password link clicked');
+    console.log('🔵 Current email for reset:', formData.email);
+  };
+
+  const handleRegisterClick = () => {
+    console.log('🔵 Register link clicked');
+  };
+
+  // Log render
+  console.log('🔵 Login component rendering with state:', {
+    formData: { ...formData, password: '***' },
+    errors,
+    isLoading,
+    generalError,
+    showPassword,
+    isAuthenticated,
+    user: user ? { ...user, password: undefined } : null
+  });
 
   return (
     <Base>
@@ -187,7 +257,7 @@ const Login = () => {
                 {errors.submit}
               </Alert>
             )}
-            {generalError && ( // Add this block
+            {generalError && (
               <Alert severity="error" sx={{ mb: 2 }}>
                 {generalError}
               </Alert>
@@ -224,7 +294,7 @@ const Login = () => {
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton
-                        onClick={() => setShowPassword(!showPassword)}
+                        onClick={handlePasswordVisibilityToggle}
                         edge="end"
                         disabled={isLoading}
                       >
@@ -269,6 +339,7 @@ const Login = () => {
                     textDecoration: 'none',
                     fontSize: '14px'
                   }}
+                  onClick={handleForgotPasswordClick}
                 >
                   Quên mật khẩu?
                 </Link>
@@ -356,6 +427,7 @@ const Login = () => {
                       fontWeight: 600,
                       cursor: "pointer",
                     }}
+                    onClick={handleRegisterClick}
                     onMouseEnter={(e) => {
                       e.target.style.textDecoration = "underline";
                     }}
