@@ -164,6 +164,82 @@ class ApiService {
       throw error;
     }
   }
+
+  // Order Management Methods
+  async createOrder(orderData) {
+    try {
+      const response = await this.axios.post("/orders", orderData);
+      return response.data;
+    } catch (error) {
+      console.error("createOrder error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
+  }
+
+  async createGuestOrder(orderData) {
+    try {
+      const response = await this.axios.post("/orders/guest", orderData);
+      return response.data;
+    } catch (error) {
+      console.error("createGuestOrder error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
+  }
+
+  async getMyOrders() {
+    try {
+      const response = await this.axios.get("/orders/my-orders");
+      return response.data;
+    } catch (error) {
+      console.error("getMyOrders error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
+  }
+
+  async getOrderByReference(orderRef) {
+    try {
+      const response = await this.axios.get(`/orders/ref/${orderRef}`);
+      return response.data;
+    } catch (error) {
+      console.error("getOrderByReference error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
+  }
+
+  async updateOrderStatus(orderId, status) {
+    try {
+      const response = await this.axios.patch(`/orders/${orderId}/status`, { status });
+      return response.data;
+    } catch (error) {
+      console.error("updateOrderStatus error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
+  }
 }
 
 export default new ApiService();

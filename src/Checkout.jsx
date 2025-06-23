@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Base from './base';
 import { useCart } from './contexts/CartContext'; // Add this import
 import { useNavigate } from 'react-router-dom'; // Add navigation
+import { useAuth } from './contexts/AuthContext'; // Add auth context
+import apiService from './services/api'; // Add API service
 import {
   Box,
   Button,
@@ -38,6 +40,9 @@ export default function Checkout() {
   // Get cart data from context
   const { cartItems, getTotalPrice, clearCart } = useCart();
   
+  // Get auth data from context
+  const { user, isAuthenticated } = useAuth();
+  
   // Check if cart is empty - this should be done BEFORE other hooks
   useEffect(() => {
     if (cartItems.length === 0) {
@@ -51,6 +56,7 @@ export default function Checkout() {
   const [shippingInfo, setShippingInfo] = useState({
     firstName: '',
     lastName: '',
+    email: '',
     address: '',
     city: '',
     state: '',
@@ -64,6 +70,21 @@ export default function Checkout() {
   const [paymentError, setPaymentError] = useState('');
   const [orderId, setOrderId] = useState('');
   const [pollingInterval, setPollingInterval] = useState(null);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [orderError, setOrderError] = useState('');
+
+  // Pre-fill shipping info with user data if authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      setShippingInfo(prev => ({
+        ...prev,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        phone: user.phone || '',
+        // Keep other fields as user input since user data might not have address details
+      }));
+    }
+  }, [isAuthenticated, user]);
 
   // Early return after all hooks have been called
   if (cartItems.length === 0) {
@@ -355,6 +376,22 @@ async function checkTransactionStatus(transactionId) {
           onChange={handleShippingChange}
         />
       </Grid>
+      {!isAuthenticated && (
+        <Grid item xs={12}>
+          <TextField
+            required
+            id="email"
+            name="email"
+            label="Email Address"
+            type="email"
+            fullWidth
+            autoComplete="email"
+            value={shippingInfo.email}
+            onChange={handleShippingChange}
+            helperText="We'll send order confirmation to this email"
+          />
+        </Grid>
+      )}
       <Grid item xs={12}>
         <TextField
           required
@@ -534,21 +571,83 @@ async function checkTransactionStatus(transactionId) {
     }
   };
   
-  const handlePlaceOrder = () => {
-    // Submit order to backend
-    console.log('Order placed!', {
-      shippingInfo,
-      paymentMethod,
-      cartItems,
-      total,
-      orderId: orderRef
-    });
-    
-    // Clear the cart after successful order
-    clearCart();
-    
-    // Navigate to order confirmation or show success message
-    setActiveStep(activeStep + 1);
+  const handlePlaceOrder = async () => {
+    setIsPlacingOrder(true);
+    setOrderError('');
+
+    try {
+      // Prepare order data
+      const orderData = {
+        orderRef: orderRef,
+        items: cartItems.map(item => ({
+          productId: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.image
+        })),
+        shippingInfo: {
+          firstName: shippingInfo.firstName,
+          lastName: shippingInfo.lastName,
+          address: shippingInfo.address,
+          city: shippingInfo.city,
+          state: shippingInfo.state,
+          zip: shippingInfo.zip,
+          country: shippingInfo.country || 'Vietnam',
+          phone: shippingInfo.phone
+        },
+        paymentMethod: paymentMethod,
+        paymentStatus: paymentMethod === 'vietqr' && isPaymentVerified ? 'paid' : 'pending',
+        subtotal: subtotal,
+        tax: tax,
+        shipping: shipping,
+        total: total,
+        notes: `Order placed via ${paymentMethod === 'vietqr' ? 'VietQR' : 'Cash on Delivery'}`
+      };
+
+      let response;
+      
+      // Use appropriate endpoint based on authentication status
+      if (isAuthenticated) {
+        response = await apiService.createOrder(orderData);
+      } else {
+        // For guest orders, add email if available from shipping info
+        orderData.guestEmail = shippingInfo.email || null;
+        response = await apiService.createGuestOrder(orderData);
+      }
+
+      if (response.success) {
+        console.log('Order placed successfully!', response.data);
+        
+        // Clear the cart after successful order
+        clearCart();
+        
+        // Update order ID with the one from backend if different
+        if (response.data.orderRef !== orderRef) {
+          setOrderId(response.data.orderRef);
+        }
+        
+        // Navigate to success step
+        setActiveStep(activeStep + 1);
+      } else {
+        setOrderError(response.message || 'Failed to place order. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error placing order:', error);
+      
+      // Handle specific error cases
+      if (error.response?.status === 400) {
+        setOrderError('Invalid order data. Please check your information and try again.');
+      } else if (error.response?.status === 401) {
+        setOrderError('Authentication required. Please log in and try again.');
+      } else if (error.response?.status === 500) {
+        setOrderError('Server error. Please try again later.');
+      } else {
+        setOrderError('Failed to place order. Please check your connection and try again.');
+      }
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
   
   return (
@@ -599,9 +698,20 @@ async function checkTransactionStatus(transactionId) {
         <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
           {getStepContent(activeStep)}
           
+          {/* Order Error Display */}
+          {orderError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {orderError}
+            </Alert>
+          )}
+          
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
             {activeStep !== 0 && (
-              <Button onClick={handleBack} sx={{ mr: 1 }}>
+              <Button 
+                onClick={handleBack} 
+                sx={{ mr: 1 }}
+                disabled={isPlacingOrder}
+              >
                 Back
               </Button>
             )}
@@ -611,15 +721,21 @@ async function checkTransactionStatus(transactionId) {
                 variant="contained"
                 color="primary"
                 onClick={handlePlaceOrder}
-                disabled={paymentMethod === 'vietqr' && !isPaymentVerified}
+                disabled={
+                  isPlacingOrder || 
+                  (paymentMethod === 'vietqr' && !isPaymentVerified) ||
+                  (!isAuthenticated && !shippingInfo.email)
+                }
+                startIcon={isPlacingOrder ? <CircularProgress size={20} /> : null}
               >
-                Place Order
+                {isPlacingOrder ? 'Placing Order...' : 'Place Order'}
               </Button>
             ) : (
               <Button
                 variant="contained"
                 color="primary"
                 onClick={handleNext}
+                disabled={isPlacingOrder}
               >
                 Next
               </Button>
