@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { CartProvider } from './contexts/CartContext';
 import { CartUpdateProvider } from './contexts/CartUpdateContext';
 import ResetPassword from "./components/ResetPassword";
+import ResetPasswordWithToken from "./components/ResetPasswordWithToken";
 
 // Home component - you can replace this with your actual home page
 function Home() {
@@ -61,6 +62,7 @@ function AuthRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="reset-password" element={<ResetPassword/>} />
+      <Route path="reset-password/:token" element={<ResetPasswordWithToken/>} />
       <Route 
         path="/mainmenu" 
         element={<MainMenu />} 

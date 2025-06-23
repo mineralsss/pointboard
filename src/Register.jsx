@@ -98,6 +98,12 @@ function Register() {
       newErrors.phone = "Vui lòng nhập số điện thoại";
     } else if (!/^[+]?[\d\s\-()]+$/.test(formData.phone)) {
       newErrors.phone = "Số điện thoại không hợp lệ";
+    } else {
+      // Remove all non-digit characters to count actual digits
+      const digitsOnly = formData.phone.replace(/\D/g, "");
+      if (digitsOnly.length !== 11) {
+        newErrors.phone = "Số điện thoại phải có đúng 11 số";
+      }
     }
 
     if (!formData.address.trim()) {
@@ -330,7 +336,7 @@ function Register() {
               sx={{ mt: 2 }}
               variant="outlined"
               disabled={isLoading}
-              placeholder="0xxxxxxxxxx"
+              placeholder="Nhập đúng 11 số (VD: 0xxxxxxxxxx)"
             />
 
             <TextField

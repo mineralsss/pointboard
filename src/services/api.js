@@ -110,6 +110,60 @@ class ApiService {
       throw error;
     }
   }
+
+  // Password Reset Methods
+  async forgotPassword(email) {
+    try {
+      const response = await this.axios.post("/auth/forgot-password", { email });
+      return response.data;
+    } catch (error) {
+      console.error("forgotPassword error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
+  }
+
+  // Code-based password reset (existing functionality)
+  async resetPasswordWithCode(email, resetCode, newPassword) {
+    try {
+      const response = await this.axios.post("/auth/reset-password", {
+        email,
+        resetCode,
+        newPassword
+      });
+      return response.data;
+    } catch (error) {
+      console.error("resetPasswordWithCode error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
+  }
+
+  // Link-based password reset (new functionality)
+  async resetPasswordWithToken(token, newPassword) {
+    try {
+      const response = await this.axios.post(`/auth/reset-password/${token}`, {
+        newPassword
+      });
+      return response.data;
+    } catch (error) {
+      console.error("resetPasswordWithToken error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
+  }
 }
 
 export default new ApiService();

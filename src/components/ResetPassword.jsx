@@ -11,6 +11,7 @@ import {
   CircularProgress
 } from '@mui/material';
 import Base from '../base';
+import apiService from '../services/api';
 
 const ResetPassword = () => {
   const navigate = useNavigate();
@@ -48,24 +49,21 @@ const ResetPassword = () => {
     setError('');
 
     try {
-      const response = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: formData.email }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccess('Reset code sent to your email. Please check your inbox.');
+      const response = await apiService.forgotPassword(formData.email);
+      
+      if (response.success) {
+        setSuccess('Reset instructions sent to your email. Please check your inbox for both a reset code and a secure reset link.');
         setStep(2);
       } else {
-        setError(data.message || 'Failed to send reset email');
+        setError(response.message || 'Failed to send reset email');
       }
     } catch (error) {
-      setError('Network error. Please try again.');
+      console.error('Forgot password error:', error);
+      if (error.response?.status === 404) {
+        setError('Email address not found');
+      } else {
+        setError('Failed to send reset email. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -92,21 +90,13 @@ const ResetPassword = () => {
     }
 
     try {
-      const response = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          resetCode: formData.resetCode,
-          newPassword: formData.newPassword
-        }),
-      });
+      const response = await apiService.resetPasswordWithCode(
+        formData.email,
+        formData.resetCode,
+        formData.newPassword
+      );
 
-      const data = await response.json();
-
-      if (response.ok) {
+      if (response.success) {
         setSuccess('Password reset successfully! Redirecting to login...');
         setTimeout(() => {
           navigate('/login', { 
@@ -117,10 +107,15 @@ const ResetPassword = () => {
           });
         }, 2000);
       } else {
-        setError(data.message || 'Failed to reset password');
+        setError(response.message || 'Failed to reset password');
       }
     } catch (error) {
-      setError('Network error. Please try again.');
+      console.error('Reset password error:', error);
+      if (error.response?.status === 400) {
+        setError('Invalid reset code or the code has expired');
+      } else {
+        setError('Failed to reset password. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -135,23 +130,16 @@ const ResetPassword = () => {
     setError('');
 
     try {
-      const response = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: formData.email }),
-      });
+      const response = await apiService.forgotPassword(formData.email);
 
-      const data = await response.json();
-
-      if (response.ok) {
+      if (response.success) {
         setSuccess('New reset code sent to your email.');
       } else {
-        setError(data.message || 'Failed to resend code');
+        setError(response.message || 'Failed to resend code');
       }
     } catch (error) {
-      setError('Network error. Please try again.');
+      console.error('Resend code error:', error);
+      setError('Failed to resend code. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -186,7 +174,7 @@ const ResetPassword = () => {
               // Step 1: Email input
               <Box component="form" onSubmit={handleSendResetEmail} sx={{ mt: 1 }}>
                 <Typography variant="body1" sx={{ mb: 2, textAlign: 'center' }}>
-                  Enter your email address and we'll send you a reset code.
+                  Enter your email address and we'll send you reset instructions. You'll receive both a reset code (for this page) and a secure reset link.
                 </Typography>
 
                 <TextField
@@ -251,6 +239,12 @@ const ResetPassword = () => {
                 <Typography variant="body1" sx={{ mb: 2, textAlign: 'center' }}>
                   Enter the reset code sent to <strong>{formData.email}</strong> and your new password.
                 </Typography>
+                
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  <Typography variant="body2">
+                    <strong>Alternative:</strong> You can also use the secure reset link sent to your email for a simpler one-click reset process.
+                  </Typography>
+                </Alert>
 
                 <TextField
                   margin="normal"
