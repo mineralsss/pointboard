@@ -38,6 +38,15 @@ export default function Checkout() {
   // Get cart data from context
   const { cartItems, getTotalPrice, clearCart } = useCart();
   
+  // Check if cart is empty - this should be done BEFORE other hooks
+  useEffect(() => {
+    if (cartItems.length === 0) {
+      // Redirect to main menu if cart is empty
+      navigate('/mainmenu');
+    }
+  }, [cartItems.length, navigate]);
+
+  // If cart is empty, don't render the component - but use all hooks first
   const [activeStep, setActiveStep] = useState(0);
   const [shippingInfo, setShippingInfo] = useState({
     firstName: '',
@@ -55,16 +64,8 @@ export default function Checkout() {
   const [paymentError, setPaymentError] = useState('');
   const [orderId, setOrderId] = useState('');
   const [pollingInterval, setPollingInterval] = useState(null);
-  
-  // Check if cart is empty on component mount
-  useEffect(() => {
-    if (cartItems.length === 0) {
-      // Redirect to main menu if cart is empty
-      navigate('/mainmenu');
-    }
-  }, [cartItems.length, navigate]);
 
-  // If cart is empty, don't render the component
+  // Early return after all hooks have been called
   if (cartItems.length === 0) {
     return (
       <Base>
