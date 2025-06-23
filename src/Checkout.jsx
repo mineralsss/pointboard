@@ -43,14 +43,6 @@ export default function Checkout() {
   // Get auth data from context
   const { user, isAuthenticated } = useAuth();
   
-  // Check if cart is empty - this should be done BEFORE other hooks
-  useEffect(() => {
-    if (cartItems.length === 0) {
-      // Redirect to main menu if cart is empty
-      navigate('/mainmenu');
-    }
-  }, [cartItems.length, navigate]);
-
   // If cart is empty, don't render the component - but use all hooks first
   const [activeStep, setActiveStep] = useState(0);
   const [shippingInfo, setShippingInfo] = useState({
@@ -86,8 +78,8 @@ export default function Checkout() {
     }
   }, [isAuthenticated, user]);
 
-  // Early return after all hooks have been called
-  if (cartItems.length === 0) {
+  // Early return after all hooks have been called - but only if not on success page
+  if (cartItems.length === 0 && activeStep < 3) {
     return (
       <Base>
         <Container maxWidth="lg" sx={{ mb: 8, textAlign: 'center', mt: 8 }}>

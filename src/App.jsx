@@ -12,6 +12,7 @@ import { CartUpdateProvider } from './contexts/CartUpdateContext';
 import ResetPassword from "./components/ResetPassword";
 import ResetPasswordWithToken from "./components/ResetPasswordWithToken";
 import Orders from "./components/Orders";
+import AdminDashboard from "./components/AdminDashboard";
 
 // Home component - you can replace this with your actual home page
 function Home() {
@@ -71,6 +72,7 @@ function AuthRoutes() {
       <Route path="/checkout" element={<Checkout />} />
       <Route path="/verify-email/:token" element={<VerifyEmail />} />
       <Route path="/orders" element={<Orders />} />
+      <Route path="/admin-dashboard" element={<AdminDashboard />} />
       {/* Add other routes as needed */}
     </Routes>
   );

@@ -72,6 +72,12 @@ class ApiService {
       // If it's a 500 error, it's likely a server issue
       if (error.response?.status === 500) {
         console.warn("Server error (500) when fetching user profile. This may be a temporary server issue.");
+        // Return a graceful fallback instead of throwing
+        return {
+          success: false,
+          message: "Server temporarily unavailable. Using cached user data.",
+          error: "SERVER_ERROR"
+        };
       }
       
       throw error;
@@ -232,6 +238,82 @@ class ApiService {
       return response.data;
     } catch (error) {
       console.error("updateOrderStatus error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
+  }
+
+  // Admin Methods
+  async getAllOrders() {
+    try {
+      const response = await this.axios.get("/admin/orders");
+      return response.data;
+    } catch (error) {
+      console.error("getAllOrders error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
+  }
+
+  async getAllUsers() {
+    try {
+      const response = await this.axios.get("/admin/users");
+      return response.data;
+    } catch (error) {
+      console.error("getAllUsers error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
+  }
+
+  async getAnalytics() {
+    try {
+      const response = await this.axios.get("/admin/analytics");
+      return response.data;
+    } catch (error) {
+      console.error("getAnalytics error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
+  }
+
+  async deleteUser(userId) {
+    try {
+      const response = await this.axios.delete(`/admin/users/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error("deleteUser error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
+  }
+
+  async updateUserRole(userId, role) {
+    try {
+      const response = await this.axios.patch(`/admin/users/${userId}/role`, { role });
+      return response.data;
+    } catch (error) {
+      console.error("updateUserRole error details:", {
         status: error.response?.status,
         statusText: error.response?.statusText,
         data: error.response?.data,

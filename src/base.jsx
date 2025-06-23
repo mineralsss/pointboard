@@ -207,6 +207,14 @@ function Base({ children }) {
           <MenuItem key="profile" onClick={handleMenuClose}>
             Hồ sơ cá nhân
           </MenuItem>,
+          <MenuItem key="orders" onClick={() => { handleMenuClose(); navigate('/orders'); }}>
+            Đơn hàng của tôi
+          </MenuItem>,
+          user?.role === 'admin' && (
+            <MenuItem key="admin" onClick={() => { handleMenuClose(); navigate('/admin-dashboard'); }}>
+              Quản trị viên
+            </MenuItem>
+          ),
           <MenuItem key="account" onClick={handleMenuClose}>
             Tài khoản của tôi
           </MenuItem>,
@@ -216,7 +224,7 @@ function Base({ children }) {
           <MenuItem key="logout" onClick={handleLogout}>
             Đăng xuất
           </MenuItem>,
-        ]
+        ].filter(Boolean)
       ) : (
         <MenuItem onClick={handleLoginClick}>Đăng nhập</MenuItem>
       )}
