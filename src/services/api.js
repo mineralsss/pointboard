@@ -174,7 +174,7 @@ class ApiService {
   // Order Management Methods
   async createOrder(orderData) {
     try {
-      const response = await this.axios.post("/orders", orderData);
+      const response = await this.axios.post("../orders", orderData);
       return response.data;
     } catch (error) {
       console.error("createOrder error details:", {
@@ -189,7 +189,7 @@ class ApiService {
 
   async createGuestOrder(orderData) {
     try {
-      const response = await this.axios.post("/orders/guest", orderData);
+      const response = await this.axios.post("../orders/guest", orderData);
       return response.data;
     } catch (error) {
       console.error("createGuestOrder error details:", {
@@ -204,7 +204,7 @@ class ApiService {
 
   async getMyOrders() {
     try {
-      const response = await this.axios.get("/orders/my-orders");
+      const response = await this.axios.get("../orders/my-orders");
       return response.data;
     } catch (error) {
       console.error("getMyOrders error details:", {
@@ -219,7 +219,7 @@ class ApiService {
 
   async getOrderByReference(orderRef) {
     try {
-      const response = await this.axios.get(`/orders/ref/${orderRef}`);
+      const response = await this.axios.get(`../orders/ref/${orderRef}`);
       return response.data;
     } catch (error) {
       console.error("getOrderByReference error details:", {
@@ -234,7 +234,7 @@ class ApiService {
 
   async updateOrderStatus(orderId, status) {
     try {
-      const response = await this.axios.patch(`/orders/${orderId}/status`, { status });
+      const response = await this.axios.patch(`../orders/${orderId}/status`, { status });
       return response.data;
     } catch (error) {
       console.error("updateOrderStatus error details:", {
@@ -250,7 +250,7 @@ class ApiService {
   // Admin Methods
   async getAllOrders() {
     try {
-      const response = await this.axios.get("/admin/orders");
+      const response = await this.axios.get("../admin/orders");
       return response.data;
     } catch (error) {
       console.error("getAllOrders error details:", {
