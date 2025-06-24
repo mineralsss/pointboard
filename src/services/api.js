@@ -3,10 +3,10 @@ import axios from "axios";
 class ApiService {
   constructor() {
     // Fix the process.env reference
-    const apiUrl = 'http://localhost:3000/api/v1';
-      // import.meta.env?.VITE_API_URL ||
-      // (typeof process !== "undefined" && process.env?.REACT_APP_API_URL) ||
-      // "/api/v1";
+    const apiUrl =
+      import.meta.env?.VITE_API_URL ||
+      (typeof process !== "undefined" && process.env?.REACT_APP_API_URL) ||
+      "/api/v1";
 
     this.axios = axios.create({
       baseURL: apiUrl,
