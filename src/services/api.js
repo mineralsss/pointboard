@@ -3,10 +3,10 @@ import axios from "axios";
 class ApiService {
   constructor() {
     // Fix the process.env reference
-    const apiUrl =
-    import.meta.env?.VITE_API_URL ||
-      (typeof process !== "undefined" && process.env?.REACT_APP_API_URL) ||
-      "/api/v1";
+    const apiUrl = 'http://localhost:3000/api/v1';
+      // import.meta.env?.VITE_API_URL ||
+      // (typeof process !== "undefined" && process.env?.REACT_APP_API_URL) ||
+      // "/api/v1";
 
     this.axios = axios.create({
       baseURL: apiUrl,
@@ -141,6 +141,16 @@ class ApiService {
         resetCode,
         newPassword
       });
+      
+      // If backend returns auth data after reset, we should NOT store it
+      // because the user should login manually with their new password
+      if (response.data?.token || response.data?.accessToken) {
+        console.log("Backend returned auth token after password reset, but we'll ignore it");
+        // Remove any auth data to force proper login
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+      }
+      
       return response.data;
     } catch (error) {
       console.error("resetPasswordWithCode error details:", {
@@ -159,6 +169,16 @@ class ApiService {
       const response = await this.axios.post(`/auth/reset-password/${token}`, {
         newPassword
       });
+      
+      // If backend returns auth data after reset, we should NOT store it
+      // because the user should login manually with their new password
+      if (response.data?.token || response.data?.accessToken) {
+        console.log("Backend returned auth token after password reset, but we'll ignore it");
+        // Remove any auth data to force proper login
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+      }
+      
       return response.data;
     } catch (error) {
       console.error("resetPasswordWithToken error details:", {

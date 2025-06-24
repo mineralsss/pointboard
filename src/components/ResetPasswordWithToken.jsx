@@ -87,6 +87,11 @@ const ResetPasswordWithToken = () => {
       
       if (response.success) {
         setSuccess('Password reset successfully! Redirecting to login...');
+        
+        // Clear any existing auth data to ensure clean login
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        
         setTimeout(() => {
           navigate('/login', { 
             state: { 

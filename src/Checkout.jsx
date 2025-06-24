@@ -568,33 +568,27 @@ async function checkTransactionStatus(transactionId) {
     setOrderError('');
 
     try {
-      // Prepare order data
+      // Prepare order data according to backend format
       const orderData = {
-        orderRef: orderRef,
         items: cartItems.map(item => ({
-          productId: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          image: item.image
+          productName: item.name,          // Required
+          quantity: item.quantity,         // Required
+          price: item.price,               // Required
+          productId: item._id || item.id,  // Optional
+          // image field removed as backend doesn't expect it
         })),
-        shippingInfo: {
-          firstName: shippingInfo.firstName,
-          lastName: shippingInfo.lastName,
+        totalAmount: total,                // Required
+        paymentMethod: paymentMethod === 'vietqr' ? 'bank_transfer' : paymentMethod,  // Map vietqr to bank_transfer
+        shippingAddress: {                 // Optional but we'll include it
+          fullName: `${shippingInfo.firstName} ${shippingInfo.lastName}`.trim(),
+          phone: shippingInfo.phone,
           address: shippingInfo.address,
           city: shippingInfo.city,
-          state: shippingInfo.state,
-          zip: shippingInfo.zip,
-          country: shippingInfo.country || 'Vietnam',
-          phone: shippingInfo.phone
+          district: shippingInfo.state || 'N/A',  // Using state as district
+          ward: shippingInfo.zip,          // Using zip as ward (optional)
+          notes: `Country: ${shippingInfo.country || 'Vietnam'}`  // Add country info in notes
         },
-        paymentMethod: paymentMethod,
-        paymentStatus: paymentMethod === 'vietqr' && isPaymentVerified ? 'paid' : 'pending',
-        subtotal: subtotal,
-        tax: tax,
-        shipping: shipping,
-        total: total,
-        notes: `Order placed via ${paymentMethod === 'vietqr' ? 'VietQR' : 'Cash on Delivery'}`
+        notes: `Order placed via ${paymentMethod === 'vietqr' ? 'VietQR' : 'Cash on Delivery'}. Payment status: ${paymentMethod === 'vietqr' && isPaymentVerified ? 'paid' : 'pending'}`
       };
 
       let response;
@@ -611,16 +605,23 @@ async function checkTransactionStatus(transactionId) {
       if (response.success) {
         console.log('Order placed successfully!', response.data);
         
-        // Clear the cart after successful order
-        clearCart();
-        
-        // Update order ID with the one from backend if different
-        if (response.data.orderRef !== orderRef) {
+        // Update order ID with the one from backend
+        if (response.data.orderRef) {
           setOrderId(response.data.orderRef);
+        } else if (response.data.orderId) {
+          setOrderId(response.data.orderId);
+        } else if (response.data._id) {
+          setOrderId(response.data._id);
         }
         
-        // Navigate to success step
+        // Navigate to success step BEFORE clearing cart
         setActiveStep(activeStep + 1);
+        
+        // Clear the cart after navigating to success page
+        // Use setTimeout to ensure state update happens after navigation
+        setTimeout(() => {
+          clearCart();
+        }, 100);
       } else {
         setOrderError(response.message || 'Failed to place order. Please try again.');
       }
