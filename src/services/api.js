@@ -194,7 +194,7 @@ class ApiService {
   // Order Management Methods
   async createOrder(orderData) {
     try {
-      const response = await this.axios.post("/allorders", orderData);
+      const response = await this.axios.post("/orders", orderData);
       return response.data;
     } catch (error) {
       console.error("createOrder error details:", {
