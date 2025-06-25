@@ -282,7 +282,6 @@ function Base({ children }) {
     "/login",
     "/register",
     "/verify-email",
-    "/admin-dashboard",
     "/reset-password",
   ].some((path) => location.pathname.startsWith(path));
 
