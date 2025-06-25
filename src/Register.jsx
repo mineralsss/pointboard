@@ -101,8 +101,8 @@ function Register() {
     } else {
       // Remove all non-digit characters to count actual digits
       const digitsOnly = formData.phone.replace(/\D/g, "");
-      if (digitsOnly.length !== 11) {
-        newErrors.phone = "Số điện thoại phải có đúng 11 số";
+      if (digitsOnly.length !== 10) {
+        newErrors.phone = "Số điện thoại phải có đúng 10 số";
       }
     }
 
