@@ -3,10 +3,10 @@ import axios from "axios";
 class ApiService {
   constructor() {
     // Fix the process.env reference
-    const apiUrl =
-      import.meta.env?.VITE_API_URL ||
-      (typeof process !== "undefined" && process.env?.REACT_APP_API_URL) ||
-      "/api/v1";
+    const apiUrl = "http://localhost:3000/api/v1"
+      // import.meta.env?.VITE_API_URL ||
+      // (typeof process !== "undefined" && process.env?.REACT_APP_API_URL) ||
+      // "/api/v1";
 
     this.axios = axios.create({
       baseURL: apiUrl,
@@ -194,7 +194,7 @@ class ApiService {
   // Order Management Methods
   async createOrder(orderData) {
     try {
-      const response = await this.axios.post("/orders", orderData);
+      const response = await this.axios.post("/allorders", orderData);
       return response.data;
     } catch (error) {
       console.error("createOrder error details:", {
@@ -268,9 +268,9 @@ class ApiService {
   }
 
   // Admin Methods
-  async getAllOrders() {
+  async getAllOrders(page = 1, limit = 10) {
     try {
-      const response = await this.axios.get("/admin/orders");
+      const response = await this.axios.get(`/orders/all?page=${page}&limit=${limit}`);
       return response.data;
     } catch (error) {
       console.error("getAllOrders error details:", {
@@ -285,7 +285,7 @@ class ApiService {
 
   async getAllUsers() {
     try {
-      const response = await this.axios.get("/admin/users");
+      const response = await this.axios.get("/allusers");
       return response.data;
     } catch (error) {
       console.error("getAllUsers error details:", {

@@ -43,11 +43,6 @@ const GlobalStyles = styled("style")({
   },
 });
 
-// Add font import at the top level
-const FontImport = styled("style")(`
-  @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Jersey+10&family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
-`);
-
 const Search = styled("div")(({ theme }) => ({
   position: "relative",
   borderRadius: "24px", // Slightly smaller radius for a more balanced look
@@ -259,14 +254,14 @@ function Base({ children }) {
       <MenuItem>
         <IconButton
           size="large"
-          aria-label="show notifications"
+          aria-label={`show ${getTotalItems()} new notifications`}
           color="inherit"
         >
-          <Badge badgeContent={5} color="error">
+          <Badge badgeContent={getTotalItems()} color="error">
             <NotificationsIcon />
           </Badge>
         </IconButton>
-        <p>Thông báo</p>
+        <p>Notifications</p>
       </MenuItem>
       <MenuItem onClick={handleProfileMenuOpen}>
         <IconButton
@@ -276,30 +271,46 @@ function Base({ children }) {
           aria-haspopup="true"
           color="inherit"
         >
-          {isAuthenticated && user?.avatar ? (
-            <Avatar src={user.avatar} sx={{ width: 24, height: 24 }} />
-          ) : (
-            <AccountCircle />
-          )}
+          <AccountCircle />
         </IconButton>
-        <p>{isAuthenticated ? user?.firstName : "Tài khoản"}</p>
+        <p>Profile</p>
       </MenuItem>
-      {!isAuthenticated && (
-        <MenuItem onClick={handleLoginClick}>
-          <IconButton size="large" color="inherit">
-            <AccountCircle />
-          </IconButton>
-          <p>Đăng nhập</p>
-        </MenuItem>
-      )}
     </Menu>
   );
+
+  const shouldShowBase = ![
+    "/login",
+    "/register",
+    "/verify-email",
+    "/admin-dashboard",
+    "/reset-password",
+  ].some((path) => location.pathname.startsWith(path));
+
+  // Regular expression to match reset password routes with tokens
+  const resetPasswordRegex = /^\/reset-password\/.+/;
+  if (resetPasswordRegex.test(location.pathname)) {
+    return <>{children}</>;
+  }
+
+  // Regular expression to match verify email routes with tokens
+  const verifyEmailRegex = /^\/verify-email\/.+/;
+  if (verifyEmailRegex.test(location.pathname)) {
+    return <>{children}</>;
+  }
+  
+  // Do not render Base for checkout
+  if (location.pathname === "/checkout") {
+    return <>{children}</>;
+  }
+
+  if (!shouldShowBase) {
+    return <>{children}</>;
+  }
 
   return (
     <React.Fragment>
       <CssBaseline />
       <GlobalStyles />
-      <FontImport />
 
       <div
         style={{

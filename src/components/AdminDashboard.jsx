@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Container,
   Paper,
@@ -59,20 +59,34 @@ const AdminDashboard = () => {
   const [analytics, setAnalytics] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   
   // Order management states
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [orderFilter, setOrderFilter] = useState('all');
   const [orderSearchTerm, setOrderSearchTerm] = useState('');
+  const [orderSearchInput, setOrderSearchInput] = useState(''); // Separate input state
   const [orderPage, setOrderPage] = useState(1);
+  const [orderPagination, setOrderPagination] = useState({
+    totalPages: 1,
+  });
   const [ordersPerPage] = useState(10);
   
   // User management states
   const [userFilter, setUserFilter] = useState('all');
   const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [userSearchInput, setUserSearchInput] = useState(''); // Separate input state
   const [userPage, setUserPage] = useState(1);
   const [usersPerPage] = useState(10);
+
+  // Refs to maintain focus
+  const orderSearchRef = useRef(null);
+  const userSearchRef = useRef(null);
+
+  // Debounce search
+  const orderSearchTimeout = useRef(null);
+  const userSearchTimeout = useRef(null);
 
   useEffect(() => {
     // Check if user is admin
@@ -84,51 +98,61 @@ const AdminDashboard = () => {
     loadDashboardData();
   }, [isAuthenticated, user, navigate]);
 
+  // Debug logging for selectedOrder
+
+
   const loadDashboardData = async () => {
     setLoading(true);
     setError('');
     
     try {
       await Promise.all([
-        loadOrders(),
+        loadOrders(orderPage), // Pass current page
         loadUsers()
       ]);
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
       setError('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
   };
 
-  const loadOrders = async () => {
+  const loadOrders = async (page = 1) => {
     try {
-      const response = await apiService.getAllOrders();
-      if (response.success) {
-        setOrders(response.data || []);
+      const response = await apiService.getAllOrders(page, ordersPerPage);
+      
+      if (response.success && response.data?.results && Array.isArray(response.data.results)) {
+        // Debug: Check if status field exists in the data
+        // console.log('Orders from API:', response.data.results.map(order => ({
+        //   id: order._id || order.id,
+        //   status: order.status,
+        //   orderRef: order.orderRef || order.orderNumber,
+        //   allKeys: Object.keys(order)
+        // })));
+        
+        setOrders(response.data.results);
+        const { results, ...paginationData } = response.data;
+        setOrderPagination(paginationData);
+        setError(''); // Clear previous errors
+      } else {
+        setOrders([]);
+        setError(response.message || 'Không thể tải danh sách đơn hàng hoặc dữ liệu không hợp lệ.');
       }
     } catch (error) {
-      console.error('Error loading orders:', error);
-      // Fallback to user orders if admin endpoint fails
-      try {
-        const userOrdersResponse = await apiService.getMyOrders();
-        if (userOrdersResponse.success) {
-          setOrders(userOrdersResponse.data || []);
-        }
-      } catch (fallbackError) {
-        console.error('Fallback error:', fallbackError);
-      }
+      setOrders([]);
+      setError('Lỗi khi tải danh sách đơn hàng: ' + (error.message || 'Vui lòng thử lại sau.'));
     }
   };
 
   const loadUsers = async () => {
     try {
       const response = await apiService.getAllUsers();
-      if (response.success) {
-        setUsers(response.data || []);
+      if (response.success && Array.isArray(response.users)) {
+        setUsers(response.users);
+      } else {
+        setUsers([]);
       }
     } catch (error) {
-      console.error('Error loading users:', error);
       // Set empty users array if endpoint fails
       setUsers([]);
     }
@@ -136,17 +160,42 @@ const AdminDashboard = () => {
 
   const handleOrderStatusUpdate = async (orderId, newStatus) => {
     try {
+      
+      if (!orderId) {
+        setError('Không thể cập nhật: Order ID không hợp lệ');
+        return;
+      }
+      
+      // Check if new status is different from current status
+      const currentStatus = selectedOrder?.status || selectedOrder?.orderStatus;
+      if (selectedOrder && currentStatus === newStatus) {
+        setError('Trạng thái mới phải khác với trạng thái hiện tại');
+        return;
+      }
+      
       const response = await apiService.updateOrderStatus(orderId, newStatus);
       if (response.success) {
+        // Update local state immediately for better UX
         setOrders(orders.map(order => 
-          order._id === orderId ? { ...order, status: newStatus } : order
+          (order._id === orderId || order.id === orderId) ? { ...order, status: newStatus } : order
         ));
+        
+        // Close dialog and clear selection
         setOrderDialogOpen(false);
         setSelectedOrder(null);
+        setError(''); // Clear any previous errors
+        
+        // Refresh orders data from server to ensure consistency
+        await loadOrders(orderPage);
+        
+        // Show success message
+        setSuccessMessage('Cập nhật trạng thái đơn hàng thành công!');
+        setTimeout(() => setSuccessMessage(''), 3000); // Clear after 3 seconds
+      } else {
+        setError('Cập nhật trạng thái thất bại');
       }
     } catch (error) {
-      console.error('Error updating order status:', error);
-      setError('Failed to update order status');
+      setError('Lỗi khi cập nhật trạng thái đơn hàng');
     }
   };
 
@@ -187,35 +236,130 @@ const AdminDashboard = () => {
     return colors[status] || 'default';
   };
 
-  // Filter and search functions
-  const filteredOrders = orders.filter(order => {
-    const matchesFilter = orderFilter === 'all' || order.status === orderFilter;
-    const matchesSearch = order.orderRef?.toLowerCase().includes(orderSearchTerm.toLowerCase()) ||
-                         `${order.shippingInfo?.firstName || ''} ${order.shippingInfo?.lastName || ''}`.toLowerCase().includes(orderSearchTerm.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
+  // Filter and search functions (client-side, will operate on the current page of data)
+  const filteredOrders = useMemo(() => {
+    if (!Array.isArray(orders)) return [];
+    
+    return orders.filter(order => {
+      const orderStatus = order.status || order.orderStatus;
+      const matchesFilter = orderFilter === 'all' || orderStatus === orderFilter;
+      
+      // Only apply search filter if there's actually a search term
+      if (!orderSearchTerm.trim()) {
+        return matchesFilter;
+      }
+      
+      // Handle different possible data structures for customer info
+      const customerName = `${order.shippingInfo?.firstName || order.shippingAddress?.firstName || order.user?.firstName || ''} ${order.shippingInfo?.lastName || order.shippingAddress?.lastName || order.user?.lastName || ''}`;
+      const matchesSearch = order.orderRef?.toLowerCase().includes(orderSearchTerm.toLowerCase()) ||
+                           order.orderNumber?.toLowerCase().includes(orderSearchTerm.toLowerCase()) ||
+                           customerName.toLowerCase().includes(orderSearchTerm.toLowerCase());
+      return matchesFilter && matchesSearch;
+    });
+  }, [orders, orderFilter, orderSearchTerm]);
 
-  const filteredUsers = users.filter(user => {
-    const matchesFilter = userFilter === 'all' || user.role === userFilter;
-    const matchesSearch = `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-                         (user.email || '').toLowerCase().includes(userSearchTerm.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
+  const filteredUsers = useMemo(() => {
+    if (!Array.isArray(users)) return [];
+    
+    return users.filter(user => {
+      const matchesFilter = userFilter === 'all' || user.role === userFilter;
+      
+      // Only apply search filter if there's actually a search term
+      if (!userSearchTerm.trim()) {
+        return matchesFilter;
+      }
+      
+      const matchesSearch = `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+                           (user.email || '').toLowerCase().includes(userSearchTerm.toLowerCase());
+      return matchesFilter && matchesSearch;
+    });
+  }, [users, userFilter, userSearchTerm]);
 
-  // Pagination
-  const paginatedOrders = filteredOrders.slice(
-    (orderPage - 1) * ordersPerPage,
-    orderPage * ordersPerPage
-  );
+  // Pagination is now handled by server, so we don't slice the array
+  const paginatedOrders = filteredOrders;
 
-  const paginatedUsers = filteredUsers.slice(
-    (userPage - 1) * usersPerPage,
-    userPage * usersPerPage
-  );
+  const paginatedUsers = useMemo(() => {
+    return filteredUsers.slice(
+      (userPage - 1) * usersPerPage,
+      userPage * usersPerPage
+    );
+  }, [filteredUsers, userPage, usersPerPage]);
 
   // Calculate analytics from orders
-  const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
-  const pendingOrders = orders.filter(order => order.status === 'pending').length;
+  const totalRevenue = useMemo(() => {
+    return orders.reduce((sum, order) => sum + (order.total || order.totalAmount || 0), 0);
+  }, [orders]);
+  
+  const pendingOrders = useMemo(() => {
+    return orders.filter(order => (order.status || order.orderStatus) === 'pending').length;
+  }, [orders]);
+
+  const handleOrderPageChange = (event, newPage) => {
+    setOrderPage(newPage);
+    loadOrders(newPage);
+  };
+
+  // Search handlers
+  const handleOrderSearch = (searchTerm) => {
+    setOrderSearchTerm(searchTerm);
+    setOrderPage(1); // Reset to first page when searching
+  };
+
+  const handleUserSearch = (searchTerm) => {
+    setUserSearchTerm(searchTerm);
+    setUserPage(1); // Reset to first page when searching
+  };
+
+  const handleOrderSearchKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      // Clear any pending debounce
+      if (orderSearchTimeout.current) {
+        clearTimeout(orderSearchTimeout.current);
+      }
+      handleOrderSearch(orderSearchInput);
+    }
+  };
+
+  const handleUserSearchKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      // Clear any pending debounce
+      if (userSearchTimeout.current) {
+        clearTimeout(userSearchTimeout.current);
+      }
+      handleUserSearch(userSearchInput);
+    }
+  };
+
+  // Optional: Auto search with debounce (alternative to Enter-only search)
+  const handleOrderSearchInputChange = (e) => {
+    const value = e.target.value;
+    setOrderSearchInput(value);
+    
+    // Clear previous timeout
+    if (orderSearchTimeout.current) {
+      clearTimeout(orderSearchTimeout.current);
+    }
+    
+    // Set new timeout for auto search (optional - commented out for now)
+    // orderSearchTimeout.current = setTimeout(() => {
+    //   handleOrderSearch(value);
+    // }, 800);
+  };
+
+  const handleUserSearchInputChange = (e) => {
+    const value = e.target.value;
+    setUserSearchInput(value);
+    
+    // Clear previous timeout
+    if (userSearchTimeout.current) {
+      clearTimeout(userSearchTimeout.current);
+    }
+    
+    // Set new timeout for auto search (optional - commented out for now)
+    // userSearchTimeout.current = setTimeout(() => {
+    //   handleUserSearch(value);
+    // }, 800);
+  };
 
   const AnalyticsCards = () => (
     <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -298,14 +442,16 @@ const AdminDashboard = () => {
       {/* Order Filters and Search */}
       <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
         <TextField
-          placeholder="Search orders..."
-          value={orderSearchTerm}
-          onChange={(e) => setOrderSearchTerm(e.target.value)}
+          ref={orderSearchRef}
+          placeholder="Tìm kiếm đơn hàng... (Nhấn Enter để tìm)"
+          value={orderSearchInput}
+          onChange={handleOrderSearchInputChange}
+          onKeyPress={handleOrderSearchKeyPress}
           InputProps={{
             startAdornment: <Search sx={{ color: 'text.secondary', mr: 1 }} />
           }}
           size="small"
-          sx={{ minWidth: 200 }}
+          sx={{ minWidth: 250 }}
         />
         
         <FormControl size="small" sx={{ minWidth: 120 }}>
@@ -326,20 +472,35 @@ const AdminDashboard = () => {
         
         <Button
           startIcon={<Refresh />}
-          onClick={loadOrders}
+          onClick={() => loadOrders()}
           variant="outlined"
           size="small"
         >
           Refresh
         </Button>
+        
+        {orderSearchTerm && (
+          <Button
+            onClick={() => {
+              setOrderSearchTerm('');
+              setOrderSearchInput('');
+              setOrderPage(1);
+            }}
+            variant="outlined"
+            size="small"
+            color="secondary"
+          >
+            Clear Search
+          </Button>
+        )}
       </Box>
 
       {/* Orders Table */}
-      <TableContainer component={Paper}>
+      <TableContainer component={Paper} sx={{ mb: 2 }}>
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Order ID</TableCell>
+              <TableCell>Order Ref</TableCell>
               <TableCell>Customer</TableCell>
               <TableCell>Date</TableCell>
               <TableCell>Total</TableCell>
@@ -349,55 +510,56 @@ const AdminDashboard = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {paginatedOrders.map((order) => (
-              <TableRow key={order._id}>
-                <TableCell>#{order.orderRef}</TableCell>
-                <TableCell>
-                  {order.shippingInfo ? 
-                    `${order.shippingInfo.firstName} ${order.shippingInfo.lastName}` : 
-                    'Guest User'
-                  }
-                </TableCell>
-                <TableCell>{formatDate(order.createdAt)}</TableCell>
-                <TableCell>{formatPrice(order.total)}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={order.status?.charAt(0).toUpperCase() + order.status?.slice(1)}
-                    color={getStatusColor(order.status)}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={order.paymentStatus?.charAt(0).toUpperCase() + order.paymentStatus?.slice(1)}
-                    color={getPaymentStatusColor(order.paymentStatus)}
-                    size="small"
-                    variant="outlined"
-                  />
-                </TableCell>
-                <TableCell>
-                  <IconButton
-                    size="small"
-                    onClick={() => {
-                      setSelectedOrder(order);
+            {paginatedOrders.length > 0 ? (
+              paginatedOrders.map((order) => (
+                <TableRow key={order._id || order.id} hover>
+                  <TableCell>{order.orderRef || order.orderNumber}</TableCell>
+                  <TableCell>{`${order.shippingInfo?.firstName || order.shippingAddress?.firstName || order.user?.firstName || 'N/A'} ${order.shippingInfo?.lastName || order.shippingAddress?.lastName || order.user?.lastName || ''}`}</TableCell>
+                  <TableCell>{formatDate(order.createdAt)}</TableCell>
+                  <TableCell>{formatPrice(order.total || order.totalAmount)}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={order.status || order.orderStatus || 'N/A'}
+                      color={getStatusColor(order.status || order.orderStatus)}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={order.paymentStatus}
+                      color={getPaymentStatusColor(order.paymentStatus)}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <IconButton size="small" onClick={() => { 
+                      setSelectedOrder(order); 
                       setOrderDialogOpen(true);
-                    }}
-                  >
-                    <Visibility />
-                  </IconButton>
+                      setError(''); // Clear any previous errors
+                      setSuccessMessage(''); // Clear any previous success messages
+                    }}>
+                      <Edit />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={7} align="center">
+                  <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
+                    {loading ? 'Đang tải dữ liệu...' : 'Không có đơn hàng nào để hiển thị'}
+                  </Typography>
                 </TableCell>
               </TableRow>
-            ))}
+            )}
           </TableBody>
         </Table>
       </TableContainer>
-
-      {/* Pagination */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+      <Box display="flex" justifyContent="center">
         <Pagination
-          count={Math.ceil(filteredOrders.length / ordersPerPage)}
+          count={orderPagination.totalPages}
           page={orderPage}
-          onChange={(e, page) => setOrderPage(page)}
+          onChange={handleOrderPageChange}
           color="primary"
         />
       </Box>
@@ -409,14 +571,16 @@ const AdminDashboard = () => {
       {/* User Filters and Search */}
       <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
         <TextField
-          placeholder="Search users..."
-          value={userSearchTerm}
-          onChange={(e) => setUserSearchTerm(e.target.value)}
+          ref={userSearchRef}
+          placeholder="Tìm kiếm người dùng... (Nhấn Enter để tìm)"
+          value={userSearchInput}
+          onChange={handleUserSearchInputChange}
+          onKeyPress={handleUserSearchKeyPress}
           InputProps={{
             startAdornment: <Search sx={{ color: 'text.secondary', mr: 1 }} />
           }}
           size="small"
-          sx={{ minWidth: 200 }}
+          sx={{ minWidth: 250 }}
         />
         
         <FormControl size="small" sx={{ minWidth: 120 }}>
@@ -434,12 +598,27 @@ const AdminDashboard = () => {
         
         <Button
           startIcon={<Refresh />}
-          onClick={loadUsers}
+          onClick={() => loadUsers()}
           variant="outlined"
           size="small"
         >
           Refresh
         </Button>
+        
+        {userSearchTerm && (
+          <Button
+            onClick={() => {
+              setUserSearchTerm('');
+              setUserSearchInput('');
+              setUserPage(1);
+            }}
+            variant="outlined"
+            size="small"
+            color="secondary"
+          >
+            Clear Search
+          </Button>
+        )}
       </Box>
 
       {/* Users Table */}
@@ -456,11 +635,11 @@ const AdminDashboard = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {paginatedUsers.map((user) => (
-              <TableRow key={user._id}>
+            {paginatedUsers.map((user, index) => (
+              <TableRow key={user._id || user.id || index}>
                 <TableCell>{`${user.firstName || ''} ${user.lastName || ''}`}</TableCell>
                 <TableCell>{user.email}</TableCell>
-                <TableCell>{user.phone || 'N/A'}</TableCell>
+                <TableCell>{user.phoneNumber || 'N/A'}</TableCell>
                 <TableCell>
                   <Chip
                     label={user.role?.charAt(0).toUpperCase() + user.role?.slice(1)}
@@ -519,9 +698,15 @@ const AdminDashboard = () => {
         {error && (
           <Alert severity="error" sx={{ mb: 3 }}>
             {error}
-            <Button onClick={loadDashboardData} sx={{ ml: 1 }}>
+            <Button onClick={() => loadDashboardData()} sx={{ ml: 1 }}>
               Retry
             </Button>
+          </Alert>
+        )}
+
+        {successMessage && (
+          <Alert severity="success" sx={{ mb: 3 }}>
+            {successMessage}
           </Alert>
         )}
 
@@ -553,25 +738,25 @@ const AdminDashboard = () => {
           fullWidth
         >
           <DialogTitle>
-            Order Details - #{selectedOrder?.orderRef}
+            Order Details - #{selectedOrder?.orderRef || selectedOrder?.orderNumber}
           </DialogTitle>
-          <DialogContent>
+                    <DialogContent>
             {selectedOrder && (
               <Box>
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={6}>
                     <Typography variant="h6" gutterBottom>Order Information</Typography>
-                    <Typography><strong>Status:</strong> {selectedOrder.status}</Typography>
-                    <Typography><strong>Payment:</strong> {selectedOrder.paymentStatus}</Typography>
-                    <Typography><strong>Total:</strong> {formatPrice(selectedOrder.total)}</Typography>
+                    <Typography><strong>Status:</strong> {selectedOrder.status || selectedOrder.orderStatus || 'N/A'}</Typography>
+                    <Typography><strong>Payment:</strong> {selectedOrder.paymentStatus || 'N/A'}</Typography>
+                    <Typography><strong>Total:</strong> {formatPrice(selectedOrder.total || selectedOrder.totalAmount || 0)}</Typography>
                     <Typography><strong>Date:</strong> {formatDate(selectedOrder.createdAt)}</Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Typography variant="h6" gutterBottom>Shipping Information</Typography>
-                    <Typography><strong>Name:</strong> {selectedOrder.shippingInfo?.firstName} {selectedOrder.shippingInfo?.lastName}</Typography>
-                    <Typography><strong>Address:</strong> {selectedOrder.shippingInfo?.address}</Typography>
-                    <Typography><strong>City:</strong> {selectedOrder.shippingInfo?.city}</Typography>
-                    <Typography><strong>Phone:</strong> {selectedOrder.shippingInfo?.phone}</Typography>
+                    <Typography><strong>Name:</strong> {`${selectedOrder.shippingInfo?.firstName || selectedOrder.shippingAddress?.firstName || selectedOrder.user?.firstName || ''} ${selectedOrder.shippingInfo?.lastName || selectedOrder.shippingAddress?.lastName || selectedOrder.user?.lastName || ''}`}</Typography>
+                    <Typography><strong>Address:</strong> {selectedOrder.shippingInfo?.address || selectedOrder.shippingAddress?.address || 'N/A'}</Typography>
+                    <Typography><strong>City:</strong> {selectedOrder.shippingInfo?.city || selectedOrder.shippingAddress?.city || 'N/A'}</Typography>
+                    <Typography><strong>Phone:</strong> {selectedOrder.shippingInfo?.phone || selectedOrder.shippingAddress?.phone || selectedOrder.user?.phone || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="h6" gutterBottom>Items</Typography>
@@ -586,8 +771,11 @@ const AdminDashboard = () => {
                     <FormControl fullWidth sx={{ mt: 2 }}>
                       <InputLabel>Update Status</InputLabel>
                       <Select
-                        value={selectedOrder.status}
-                        onChange={(e) => handleOrderStatusUpdate(selectedOrder._id, e.target.value)}
+                        value={selectedOrder.status || selectedOrder.orderStatus || 'pending'}
+                        onChange={(e) => {
+                          const orderId = selectedOrder._id || selectedOrder.id;
+                          handleOrderStatusUpdate(orderId, e.target.value);
+                        }}
                         label="Update Status"
                       >
                         <MenuItem value="pending">Pending</MenuItem>
