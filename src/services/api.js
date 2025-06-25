@@ -267,10 +267,25 @@ class ApiService {
     }
   }
 
-  // Admin Methods
-  async getAllOrders(page = 1, limit = 10) {
+  async updatePaymentStatus(orderId, paymentStatus) {
     try {
-      const response = await this.axios.get(`/orders/all?page=${page}&limit=${limit}`);
+      const response = await this.axios.patch(`/orders/${orderId}/payment-status`, { paymentStatus });
+      return response.data;
+    } catch (error) {
+      console.error("updatePaymentStatus error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
+  }
+
+  // Admin Methods
+  async getAllOrders(page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc') {
+    try {
+      const response = await this.axios.get(`/orders/all?page=${page}&limit=${limit}&sortBy=${sortBy}&sortOrder=${sortOrder}`);
       return response.data;
     } catch (error) {
       console.error("getAllOrders error details:", {

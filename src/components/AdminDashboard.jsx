@@ -106,9 +106,11 @@ const AdminDashboard = () => {
     
     try {
       await Promise.all([
-        loadOrders(orderPage), // Pass current page
+        loadOrders(1), // Always start with page 1 (newest orders)
         loadUsers()
       ]);
+      // Reset to page 1 when loading dashboard data
+      setOrderPage(1);
     } catch (error) {
       setError('Failed to load dashboard data');
     } finally {
@@ -118,17 +120,12 @@ const AdminDashboard = () => {
 
   const loadOrders = async (page = 1) => {
     try {
-      const response = await apiService.getAllOrders(page, ordersPerPage);
+      // Request orders sorted by creation date (newest first)
+      const response = await apiService.getAllOrders(page, ordersPerPage, 'createdAt', 'desc');
       
       if (response.success && response.data?.results && Array.isArray(response.data.results)) {
-        // Debug: Check if status field exists in the data
-        // console.log('Orders from API:', response.data.results.map(order => ({
-        //   id: order._id || order.id,
-        //   status: order.status,
-        //   orderRef: order.orderRef || order.orderNumber,
-        //   allKeys: Object.keys(order)
-        // })));
-        
+        // Trust server-side sorting and pagination - do not sort client-side
+        // Server already returns orders sorted by createdAt desc (newest first)
         setOrders(response.data.results);
         const { results, ...paginationData } = response.data;
         setOrderPagination(paginationData);
@@ -198,6 +195,48 @@ const AdminDashboard = () => {
     }
   };
 
+  const handlePaymentStatusUpdate = async (orderId, newPaymentStatus) => {
+    try {
+      if (!orderId) {
+        setError('Không thể cập nhật: Order ID không hợp lệ');
+        return;
+      }
+      
+      // Call API to update payment status
+      const response = await apiService.updatePaymentStatus(orderId, newPaymentStatus);
+      if (response.success) {
+        // Update local state immediately for better UX
+        setOrders(orders.map(order => 
+          (order._id === orderId || order.id === orderId) ? { 
+            ...order, 
+            paymentStatus: newPaymentStatus,
+            payment_status: newPaymentStatus 
+          } : order
+        ));
+        
+        // Update selected order in dialog
+        setSelectedOrder(prev => ({
+          ...prev,
+          paymentStatus: newPaymentStatus,
+          payment_status: newPaymentStatus
+        }));
+        
+        setError(''); // Clear any previous errors
+        
+        // Show success message
+        setSuccessMessage('Cập nhật trạng thái thanh toán thành công!');
+        setTimeout(() => setSuccessMessage(''), 3000); // Clear after 3 seconds
+        
+        // Refresh orders data from server to ensure consistency
+        await loadOrders(orderPage);
+      } else {
+        setError('Cập nhật trạng thái thanh toán thất bại');
+      }
+    } catch (error) {
+      setError('Lỗi khi cập nhật trạng thái thanh toán: ' + (error.message || 'Vui lòng thử lại'));
+    }
+  };
+
   const formatPrice = (price) => {
     return new Intl.NumberFormat('vi-VN', { 
       style: 'currency', 
@@ -229,10 +268,56 @@ const AdminDashboard = () => {
   const getPaymentStatusColor = (status) => {
     const colors = {
       'paid': 'success',
+      'completed': 'success',
+      'success': 'success',
+      'verified': 'success',
       'pending': 'warning',
-      'failed': 'error'
+      'processing': 'info',
+      'failed': 'error',
+      'cancelled': 'error',
+      'refunded': 'info',
+      'cash': 'success' // Cash payments are considered successful
     };
     return colors[status] || 'default';
+  };
+
+  // Helper function to format payment method and status
+  const formatPaymentInfo = (order) => {
+    const paymentMethod = order.paymentMethod || order.payment_method || 'Unknown';
+    const paymentStatus = order.paymentStatus || order.payment_status || 'pending';
+    
+    // Special handling for different payment methods
+    if (paymentMethod.toLowerCase() === 'cash' || paymentMethod.toLowerCase() === 'cod') {
+      return 'Cash';
+    }
+    
+    if (paymentMethod.toLowerCase().includes('vietqr') || paymentMethod.toLowerCase().includes('qr')) {
+      return paymentStatus === 'pending' ? 'VietQR (Pending)' : 'VietQR (Paid)';
+    }
+    
+    if (paymentMethod.toLowerCase().includes('bank')) {
+      return `Bank Transfer (${paymentStatus})`;
+    }
+    
+    // Default format: Method (Status)
+    if (paymentMethod !== 'Unknown') {
+      return `${paymentMethod} (${paymentStatus})`;
+    }
+    
+    return paymentStatus || 'Pending';
+  };
+
+  // Helper function to get payment status for color coding
+  const getPaymentStatusForColor = (order) => {
+    const paymentMethod = order.paymentMethod || order.payment_method || '';
+    const paymentStatus = order.paymentStatus || order.payment_status || 'pending';
+    
+    // Cash payments are always successful
+    if (paymentMethod.toLowerCase() === 'cash' || paymentMethod.toLowerCase() === 'cod') {
+      return 'cash';
+    }
+    
+    return paymentStatus;
   };
 
   // Filter and search functions (client-side, will operate on the current page of data)
@@ -295,6 +380,7 @@ const AdminDashboard = () => {
 
   const handleOrderPageChange = (event, newPage) => {
     setOrderPage(newPage);
+    // Load orders for the new page - server will handle sorting (newest first)
     loadOrders(newPage);
   };
 
@@ -471,7 +557,7 @@ const AdminDashboard = () => {
         
         <Button
           startIcon={<Refresh />}
-          onClick={() => loadOrders()}
+          onClick={() => loadOrders(orderPage)}
           variant="outlined"
           size="small"
         >
@@ -541,8 +627,8 @@ const AdminDashboard = () => {
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={order.paymentStatus}
-                      color={getPaymentStatusColor(order.paymentStatus)}
+                      label={formatPaymentInfo(order)}
+                      color={getPaymentStatusColor(getPaymentStatusForColor(order))}
                       size="small"
                     />
                   </TableCell>
@@ -762,7 +848,8 @@ const AdminDashboard = () => {
                   <Grid item xs={12} md={6}>
                     <Typography variant="h6" gutterBottom>Order Information</Typography>
                     <Typography><strong>Status:</strong> {selectedOrder.status || selectedOrder.orderStatus || 'N/A'}</Typography>
-                    <Typography><strong>Payment:</strong> {selectedOrder.paymentStatus || 'N/A'}</Typography>
+                    <Typography><strong>Payment Method:</strong> {selectedOrder.paymentMethod || selectedOrder.payment_method || 'N/A'}</Typography>
+                    <Typography><strong>Payment Status:</strong> {selectedOrder.paymentStatus || selectedOrder.payment_status || 'N/A'}</Typography>
                     <Typography><strong>Total:</strong> {formatPrice(selectedOrder.total || selectedOrder.totalAmount || 0)}</Typography>
                     <Typography><strong>Date:</strong> {formatDate(selectedOrder.createdAt)}</Typography>
                   </Grid>
@@ -797,22 +884,43 @@ const AdminDashboard = () => {
                       </Typography>
                     )}
                   </Grid>
-                  <Grid item xs={12}>
+                  <Grid item xs={12} md={6}>
                     <FormControl fullWidth sx={{ mt: 2 }}>
-                      <InputLabel>Update Status</InputLabel>
+                      <InputLabel>Update Order Status</InputLabel>
                       <Select
                         value={selectedOrder.status || selectedOrder.orderStatus || 'pending'}
                         onChange={(e) => {
                           const orderId = selectedOrder._id || selectedOrder.id;
                           handleOrderStatusUpdate(orderId, e.target.value);
                         }}
-                        label="Update Status"
+                        label="Update Order Status"
                       >
                         <MenuItem value="pending">Pending</MenuItem>
                         <MenuItem value="confirmed">Confirmed</MenuItem>
                         <MenuItem value="shipped">Shipped</MenuItem>
                         <MenuItem value="delivered">Delivered</MenuItem>
                         <MenuItem value="cancelled">Cancelled</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth sx={{ mt: 2 }}>
+                      <InputLabel>Update Payment Status</InputLabel>
+                      <Select
+                        value={selectedOrder.paymentStatus || selectedOrder.payment_status || 'pending'}
+                        onChange={(e) => {
+                          const orderId = selectedOrder._id || selectedOrder.id;
+                          handlePaymentStatusUpdate(orderId, e.target.value);
+                        }}
+                        label="Update Payment Status"
+                      >
+                        <MenuItem value="pending">Pending</MenuItem>
+                        <MenuItem value="paid">Paid</MenuItem>
+                        <MenuItem value="completed">Completed</MenuItem>
+                        <MenuItem value="verified">Verified</MenuItem>
+                        <MenuItem value="failed">Failed</MenuItem>
+                        <MenuItem value="cancelled">Cancelled</MenuItem>
+                        <MenuItem value="refunded">Refunded</MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>
