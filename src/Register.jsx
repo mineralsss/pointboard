@@ -336,7 +336,7 @@ function Register() {
               sx={{ mt: 2 }}
               variant="outlined"
               disabled={isLoading}
-              placeholder="Nhập đúng 11 số (VD: 0xxxxxxxxxx)"
+              placeholder="Nhập đúng 10 số (VD: 0xxxxxxxxx)"
             />
 
             <TextField
