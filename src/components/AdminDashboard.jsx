@@ -47,7 +47,6 @@ import Base from '../base';
 import { useAuth } from '../contexts/AuthContext';
 import apiService from '../services/api';
 import { useNavigate } from 'react-router-dom';
-
 const AdminDashboard = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -502,6 +501,7 @@ const AdminDashboard = () => {
             <TableRow>
               <TableCell>Order Ref</TableCell>
               <TableCell>Customer</TableCell>
+              <TableCell>Items</TableCell>
               <TableCell>Date</TableCell>
               <TableCell>Total</TableCell>
               <TableCell>Status</TableCell>
@@ -515,6 +515,21 @@ const AdminDashboard = () => {
                 <TableRow key={order._id || order.id} hover>
                   <TableCell>{order.orderRef || order.orderNumber}</TableCell>
                   <TableCell>{`${order.shippingInfo?.firstName || order.shippingAddress?.firstName || order.user?.firstName || 'N/A'} ${order.shippingInfo?.lastName || order.shippingAddress?.lastName || order.user?.lastName || ''}`}</TableCell>
+                  <TableCell>
+                    <Box sx={{ maxWidth: 200 }}>
+                      {order.items && order.items.length > 0 ? (
+                        order.items.map((item, index) => (
+                          <Typography key={index} variant="body2" sx={{ fontSize: '0.75rem', lineHeight: 1.2 }}>
+                            {item.name || item.title || 'Product'} x{item.quantity || 1}
+                          </Typography>
+                        ))
+                      ) : (
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                          No items
+                        </Typography>
+                      )}
+                    </Box>
+                  </TableCell>
                   <TableCell>{formatDate(order.createdAt)}</TableCell>
                   <TableCell>{formatPrice(order.total || order.totalAmount)}</TableCell>
                   <TableCell>
@@ -545,7 +560,7 @@ const AdminDashboard = () => {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={8} align="center">
                   <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
                     {loading ? 'Đang tải dữ liệu...' : 'Không có đơn hàng nào để hiển thị'}
                   </Typography>
@@ -760,12 +775,27 @@ const AdminDashboard = () => {
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="h6" gutterBottom>Items</Typography>
-                    {selectedOrder.items?.map((item, index) => (
-                      <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography>{item.name} x {item.quantity}</Typography>
-                        <Typography>{formatPrice(item.price * item.quantity)}</Typography>
-                      </Box>
-                    ))}
+                    {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                      selectedOrder.items.map((item, index) => (
+                        <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                          <Box>
+                            <Typography variant="body1" fontWeight="medium">
+                              {item.name || item.title || item.productName || 'Unknown Product'}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Quantity: {item.quantity || 1} × {formatPrice(item.price || 0)}
+                            </Typography>
+                          </Box>
+                          <Typography variant="body1" fontWeight="medium">
+                            {formatPrice((item.price || 0) * (item.quantity || 1))}
+                          </Typography>
+                        </Box>
+                      ))
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No items found in this order
+                      </Typography>
+                    )}
                   </Grid>
                   <Grid item xs={12}>
                     <FormControl fullWidth sx={{ mt: 2 }}>
