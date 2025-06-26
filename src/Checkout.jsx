@@ -241,7 +241,6 @@ async function checkTransactionStatus(transactionId) {
           (data.transferAmount !== undefined && data.transferAmount !== Math.round(total)) ||
           (data.amount !== undefined && data.amount !== Math.round(total))
         ) {
-          setPaymentError('Payment amount does not match.');
           await sleep(RETRY_DELAY_MS);
           continue;
         }
