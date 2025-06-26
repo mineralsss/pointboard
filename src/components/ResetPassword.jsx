@@ -16,7 +16,7 @@ import apiService from '../services/api';
 const ResetPassword = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [step, setStep] = useState(1); // 1: Email input, 2: Reset code + new password
+  const [step, setStep] = useState(1); // 1: Email input, 2: Success message
   const [formData, setFormData] = useState({
     email: '',
     resetCode: '',
@@ -52,7 +52,7 @@ const ResetPassword = () => {
       const response = await apiService.forgotPassword(formData.email);
       
       if (response.success) {
-        setSuccess('Reset instructions sent to your email. Please check your inbox for both a reset code and a secure reset link.');
+        setSuccess('Email has been sent! Please follow the instructions in your email to reset your password.');
         setStep(2);
       } else {
         setError(response.message || 'Failed to send reset email');
@@ -174,7 +174,7 @@ const ResetPassword = () => {
               // Step 1: Email input
               <Box component="form" onSubmit={handleSendResetEmail} sx={{ mt: 1 }}>
                 <Typography variant="body1" sx={{ mb: 2, textAlign: 'center' }}>
-                  Enter your email address and we'll send you reset instructions. You'll receive both a reset code (for this page) and a secure reset link.
+                  Enter your email address and we'll send you instructions to reset your password.
                 </Typography>
 
                 <TextField
@@ -220,7 +220,7 @@ const ResetPassword = () => {
                   {loading ? (
                     <CircularProgress size={24} color="inherit" />
                   ) : (
-                    'Send Reset Code'
+                    'Send Reset Instructions'
                   )}
                 </Button>
 
@@ -234,103 +234,72 @@ const ResetPassword = () => {
                 </Box>
               </Box>
             ) : (
-              // Step 2: Reset code and new password
-              <Box component="form" onSubmit={handleResetPassword} sx={{ mt: 1 }}>
-                <Typography variant="body1" sx={{ mb: 2, textAlign: 'center' }}>
-                  Enter the reset code sent to <strong>{formData.email}</strong> and your new password.
-                </Typography>
-                
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  <Typography variant="body2">
-                    <strong>Alternative:</strong> You can also use the secure reset link sent to your email for a simpler one-click reset process.
+              // Step 2: Success message
+              <Box sx={{ mt: 1, textAlign: 'center' }}>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h5" sx={{ mb: 2, color: '#491E6C', fontWeight: 'bold' }}>
+                    Email Sent Successfully!
                   </Typography>
-                </Alert>
-
-                <TextField
-                  margin="normal"
-                  required
-                  fullWidth
-                  id="resetCode"
-                  label="Reset Code"
-                  name="resetCode"
-                  autoFocus
-                  value={formData.resetCode}
-                  onChange={handleInputChange}
-                  placeholder="Enter 6-digit code"
-                />
-
-                <TextField
-                  margin="normal"
-                  required
-                  fullWidth
-                  name="newPassword"
-                  label="New Password"
-                  type="password"
-                  id="newPassword"
-                  autoComplete="new-password"
-                  value={formData.newPassword}
-                  onChange={handleInputChange}
-                />
-
-                <TextField
-                  margin="normal"
-                  required
-                  fullWidth
-                  name="confirmPassword"
-                  label="Confirm New Password"
-                  type="password"
-                  id="confirmPassword"
-                  autoComplete="new-password"
-                  value={formData.confirmPassword}
-                  onChange={handleInputChange}
-                />
-
-                {error && (
-                  <Alert severity="error" sx={{ mt: 2 }}>
-                    {error}
+                  
+                  <Typography variant="body1" sx={{ mb: 2 }}>
+                    We have sent password reset instructions to:
+                  </Typography>
+                  
+                  <Typography variant="h6" sx={{ mb: 3, color: '#491E6C', fontWeight: 'bold' }}>
+                    {formData.email}
+                  </Typography>
+                  
+                  <Alert severity="success" sx={{ mb: 3, textAlign: 'left' }}>
+                    <Typography variant="body2">
+                      <strong>What's next?</strong><br/>
+                      1. Check your email inbox (and spam folder)<br/>
+                      2. Click the secure reset link in the email<br/>
+                      3. Follow the instructions to set your new password
+                    </Typography>
                   </Alert>
-                )}
 
-                {success && (
-                  <Alert severity="success" sx={{ mt: 2 }}>
-                    {success}
+                  <Alert severity="info" sx={{ mb: 3, textAlign: 'left' }}>
+                    <Typography variant="body2">
+                      <strong>Didn't receive the email?</strong><br/>
+                      • Check your spam/junk folder<br/>
+                      • Make sure the email address is correct<br/>
+                      • Wait a few minutes and try refreshing your inbox
+                    </Typography>
                   </Alert>
-                )}
+                </Box>
 
-                <Button
-                  type="submit"
-                  fullWidth
-                  variant="contained"
-                  disabled={loading}
-                  sx={{
-                    mt: 3,
-                    mb: 2,
-                    backgroundColor: '#491E6C',
-                    '&:hover': {
-                      backgroundColor: '#5D2E7A',
-                    },
-                  }}
-                >
-                  {loading ? (
-                    <CircularProgress size={24} color="inherit" />
-                  ) : (
-                    'Reset Password'
-                  )}
-                </Button>
-
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                  <Button
-                    onClick={() => setStep(1)}
-                    sx={{ color: '#491E6C' }}
-                  >
-                    Back
-                  </Button>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <Button
                     onClick={handleResendCode}
                     disabled={loading}
-                    sx={{ color: '#491E6C' }}
+                    variant="outlined"
+                    sx={{
+                      color: '#491E6C',
+                      borderColor: '#491E6C',
+                      '&:hover': {
+                        backgroundColor: 'rgba(73, 30, 108, 0.04)',
+                        borderColor: '#491E6C',
+                      },
+                    }}
                   >
-                    Resend Code
+                    {loading ? (
+                      <CircularProgress size={24} color="inherit" />
+                    ) : (
+                      'Resend Email'
+                    )}
+                  </Button>
+
+                  <Button
+                    onClick={handleBackToLogin}
+                    variant="contained"
+                    sx={{
+                      backgroundColor: '#491E6C',
+                      '&:hover': {
+                        backgroundColor: '#5D2E7A',
+                      },
+                    }}
+                  >
+                    Back to Login
                   </Button>
                 </Box>
               </Box>
