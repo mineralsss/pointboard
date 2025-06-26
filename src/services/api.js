@@ -357,6 +357,100 @@ class ApiService {
       throw error;
     }
   }
+
+  // Create order from orderRef using backend endpoint
+  async createOrderFromRef(orderData) {
+    try {
+      console.log("🚀 Creating order from orderRef:", orderData.orderRef);
+      console.log("📦 Request data:", orderData);
+      
+      const response = await this.axios.post("/orders/create-from-ref", orderData);
+      
+      console.log("✅ Backend response:", response.data);
+      
+      return {
+        success: response.data.success,
+        data: response.data.data,
+        message: response.data.message,
+        orderRef: response.data.data?.orderNumber || orderData.orderRef,
+        paymentStatus: response.data.data?.paymentStatus,
+        orderStatus: response.data.data?.orderStatus,
+        orderId: response.data.data?._id
+      };
+    } catch (error) {
+      console.error("createOrderFromRef error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
+  }
+
+  // Test function to create order with specific orderRef using backend endpoint
+  async testCreateOrderFromRef(customOrderRef = null, transactionStatus = 'pending') {
+    const orderRef = customOrderRef || `POINTBOARDA${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`;
+    
+    const orderData = {
+      orderRef: orderRef,
+      transactionStatus: transactionStatus,
+      paymentMethod: 'bank_transfer',
+      address: {
+        fullName: "Test User",
+        phone: "0123456789",
+        address: "123 Test Street",
+        city: "Ho Chi Minh City",
+        district: "District 1",
+        ward: "Ward 1",
+        notes: "Test order address"
+      },
+      items: [
+        {
+          productId: "test-product-1",
+          productName: "Test Product 1",
+          quantity: 2,
+          price: 50000
+        },
+        {
+          productId: "test-product-2", 
+          productName: "Test Product 2",
+          quantity: 1,
+          price: 30000
+        }
+      ],
+      totalAmount: 130000,
+      customerInfo: {
+        fullName: "Test Customer",
+        phone: "0123456789",
+        email: "test@example.com"
+      },
+      notes: `Test order created via API with orderRef: ${orderRef} and status: ${transactionStatus}`
+    };
+
+    try {
+      console.log("🧪 Testing order creation from orderRef");
+      console.log("📋 OrderRef:", orderRef);
+      console.log("🔄 Transaction Status:", transactionStatus);
+      
+      const result = await this.createOrderFromRef(orderData);
+      
+      console.log("🎯 Final result:", {
+        success: result.success,
+        orderRef: result.orderRef,
+        paymentStatus: result.paymentStatus,
+        orderStatus: result.orderStatus,
+        orderId: result.orderId,
+        message: result.message
+      });
+      
+      return result;
+      
+    } catch (error) {
+      console.error("❌ Test failed:", error);
+      throw error;
+    }
+  }
 }
 
 export default new ApiService();

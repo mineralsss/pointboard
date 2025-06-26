@@ -126,6 +126,18 @@ const AdminDashboard = () => {
       if (response.success && response.data?.results && Array.isArray(response.data.results)) {
         // Trust server-side sorting and pagination - do not sort client-side
         // Server already returns orders sorted by createdAt desc (newest first)
+        
+        // Debug: Log first order to check data structure
+        if (response.data.results.length > 0) {
+          console.log('Sample order data from admin API:', {
+            orderRef: response.data.results[0].orderRef,
+            orderNumber: response.data.results[0].orderNumber,
+            _id: response.data.results[0]._id,
+            id: response.data.results[0].id,
+            fullOrder: response.data.results[0]
+          });
+        }
+        
         setOrders(response.data.results);
         const { results, ...paginationData } = response.data;
         setOrderPagination(paginationData);
@@ -254,6 +266,23 @@ const AdminDashboard = () => {
     });
   };
 
+  // Helper function to get the correct order reference
+  const getOrderReference = (order) => {
+    // Priority: orderRef > orderNumber > _id
+    const ref = order.orderRef || order.orderNumber || order._id || order.id;
+    
+    // Debug log if there's a mismatch
+    if (order.orderRef && order.orderNumber && order.orderRef !== order.orderNumber) {
+      console.warn('OrderRef mismatch detected in admin:', {
+        orderRef: order.orderRef,
+        orderNumber: order.orderNumber,
+        using: order.orderRef
+      });
+    }
+    
+    return ref;
+  };
+
   const getStatusColor = (status) => {
     const colors = {
       'pending': 'warning',
@@ -335,8 +364,8 @@ const AdminDashboard = () => {
       
       // Handle different possible data structures for customer info
       const customerName = `${order.shippingInfo?.firstName || order.shippingAddress?.firstName || order.user?.firstName || ''} ${order.shippingInfo?.lastName || order.shippingAddress?.lastName || order.user?.lastName || ''}`;
-      const matchesSearch = order.orderRef?.toLowerCase().includes(orderSearchTerm.toLowerCase()) ||
-                           order.orderNumber?.toLowerCase().includes(orderSearchTerm.toLowerCase()) ||
+      const orderReference = getOrderReference(order);
+      const matchesSearch = orderReference?.toLowerCase().includes(orderSearchTerm.toLowerCase()) ||
                            customerName.toLowerCase().includes(orderSearchTerm.toLowerCase());
       return matchesFilter && matchesSearch;
     });
@@ -599,7 +628,7 @@ const AdminDashboard = () => {
             {paginatedOrders.length > 0 ? (
               paginatedOrders.map((order) => (
                 <TableRow key={order._id || order.id} hover>
-                  <TableCell>{order.orderRef || order.orderNumber}</TableCell>
+                  <TableCell>{getOrderReference(order)}</TableCell>
                   <TableCell>{`${order.shippingInfo?.firstName || order.shippingAddress?.firstName || order.user?.firstName || 'N/A'} ${order.shippingInfo?.lastName || order.shippingAddress?.lastName || order.user?.lastName || ''}`}</TableCell>
                   <TableCell>
                     <Box sx={{ maxWidth: 200 }}>
@@ -839,7 +868,7 @@ const AdminDashboard = () => {
           fullWidth
         >
           <DialogTitle>
-            Order Details - #{selectedOrder?.orderRef || selectedOrder?.orderNumber}
+            Order Details - #{selectedOrder ? getOrderReference(selectedOrder) : 'N/A'}
           </DialogTitle>
                     <DialogContent>
             {selectedOrder && (

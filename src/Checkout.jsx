@@ -176,7 +176,10 @@ export default function Checkout() {
     setPaymentError('');
     
     try {
-      const result = await checkTransactionStatus(orderRef);
+      // Use orderId if available (from backend), otherwise use generated orderRef
+      const transactionId = orderId || orderRef;
+      console.log(`Verifying payment with transaction ID: ${transactionId}`);
+      const result = await checkTransactionStatus(transactionId);
       
       if (result.verified) {
         setIsPaymentVerified(true);
@@ -274,6 +277,15 @@ async function checkTransactionStatus(transactionId) {
     }
     // eslint-disable-next-line
   }, [activeStep, paymentMethod]);
+
+  // Update verification when orderId changes (important for backend sync)
+  useEffect(() => {
+    if (activeStep === 2 && paymentMethod === 'vietqr' && orderId && orderId !== orderRef && !isPaymentVerified && !isCheckingPayment) {
+      console.log(`OrderRef updated from ${orderRef} to ${orderId}, re-running verification...`);
+      verifyPayment();
+    }
+    // eslint-disable-next-line
+  }, [orderId]);
   
   const renderOrderReview = () => (
     <Grid container spacing={3}>
@@ -605,13 +617,25 @@ async function checkTransactionStatus(transactionId) {
       if (response.success) {
         console.log('Order placed successfully!', response.data);
         
-        // Update order ID with the one from backend
+        // Update order ID with the one from backend to ensure sync
+        let newOrderRef = null;
         if (response.data.orderRef) {
+          newOrderRef = response.data.orderRef;
           setOrderId(response.data.orderRef);
         } else if (response.data.orderId) {
+          newOrderRef = response.data.orderId;
           setOrderId(response.data.orderId);
         } else if (response.data._id) {
+          newOrderRef = response.data._id;
           setOrderId(response.data._id);
+        }
+        
+        // Log the mismatch for debugging
+        if (newOrderRef && newOrderRef !== orderRef) {
+          console.warn(`OrderRef mismatch detected:
+            Frontend generated: ${orderRef}
+            Backend returned: ${newOrderRef}
+            Using backend orderRef for consistency.`);
         }
         
         // Navigate to success step BEFORE clearing cart
