@@ -315,7 +315,7 @@ class ApiService {
 
   async getAnalytics() {
     try {
-      const response = await this.axios.get("/admin/analytics");
+      const response = await this.axios.get("/analytics");
       return response.data;
     } catch (error) {
       console.error("getAnalytics error details:", {
@@ -324,7 +324,49 @@ class ApiService {
         data: error.response?.data,
         message: error.message
       });
-      throw error;
+      // Return a fallback response instead of throwing
+    }
+  }
+
+  // Fallback method to calculate analytics from all orders
+  async getAnalyticsFromOrders() {
+    try {
+      // Get all orders with a large limit to get all orders
+      const response = await this.axios.get("/orders/all?page=1&limit=1000&sortBy=createdAt&sortOrder=desc");
+      if (response.data.success && response.data.data?.results) {
+        const orders = response.data.data.results;
+        const totalRevenue = orders.reduce((sum, order) => sum + (order.total || order.totalAmount || 0), 0);
+        const pendingOrders = orders.filter(order => (order.status || order.orderStatus) === 'pending').length;
+        
+        return {
+          success: true,
+          data: {
+            totalRevenue,
+            pendingOrders,
+            totalOrders: orders.length
+          }
+        };
+      }
+      return {
+        success: false,
+        message: "Could not fetch orders for analytics",
+        data: {
+          totalRevenue: 0,
+          pendingOrders: 0,
+          totalOrders: 0
+        }
+      };
+    } catch (error) {
+      console.error("getAnalyticsFromOrders error:", error);
+      return {
+        success: false,
+        message: "Failed to calculate analytics from orders",
+        data: {
+          totalRevenue: 0,
+          pendingOrders: 0,
+          totalOrders: 0
+        }
+      };
     }
   }
 

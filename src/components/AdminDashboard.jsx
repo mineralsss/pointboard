@@ -41,12 +41,43 @@ import {
   Visibility,
   Delete,
   Search,
-  Refresh
+  Refresh,
+  BarChart,
+  PieChart,
+  ShowChart
 } from '@mui/icons-material';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Line, Bar, Pie, Doughnut } from 'react-chartjs-2';
 import Base from '../base';
 import { useAuth } from '../contexts/AuthContext';
 import apiService from '../services/api';
 import { useNavigate } from 'react-router-dom';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 const AdminDashboard = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -59,6 +90,15 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [totalOrderCount, setTotalOrderCount] = useState(0);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [totalPendingOrders, setTotalPendingOrders] = useState(0);
+  const [chartData, setChartData] = useState({
+    orderStatus: {},
+    paymentStatus: {},
+    revenueTrend: {},
+    ordersOverTime: {}
+  });
   
   // Order management states
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -97,6 +137,8 @@ const AdminDashboard = () => {
     loadDashboardData();
   }, [isAuthenticated, user, navigate]);
 
+
+
   // Debug logging for selectedOrder
 
 
@@ -107,7 +149,8 @@ const AdminDashboard = () => {
     try {
       await Promise.all([
         loadOrders(1), // Always start with page 1 (newest orders)
-        loadUsers()
+        loadUsers(),
+        loadAnalytics() // Load analytics data for accurate totals
       ]);
       // Reset to page 1 when loading dashboard data
       setOrderPage(1);
@@ -127,20 +170,12 @@ const AdminDashboard = () => {
         // Trust server-side sorting and pagination - do not sort client-side
         // Server already returns orders sorted by createdAt desc (newest first)
         
-        // Debug: Log first order to check data structure
-        if (response.data.results.length > 0) {
-          console.log('Sample order data from admin API:', {
-            orderRef: response.data.results[0].orderRef,
-            orderNumber: response.data.results[0].orderNumber,
-            _id: response.data.results[0]._id,
-            id: response.data.results[0].id,
-            fullOrder: response.data.results[0]
-          });
-        }
+
         
         setOrders(response.data.results);
         const { results, ...paginationData } = response.data;
         setOrderPagination(paginationData);
+        
         setError(''); // Clear previous errors
       } else {
         setOrders([]);
@@ -163,6 +198,124 @@ const AdminDashboard = () => {
     } catch (error) {
       // Set empty users array if endpoint fails
       setUsers([]);
+    }
+  };
+
+  const prepareChartData = (analyticsData) => {
+    const orders = analyticsData.orders || {};
+    const payments = analyticsData.payments || {};
+    const revenue = analyticsData.revenue || {};
+    
+    // Order Status Distribution Chart
+    const orderStatusData = {
+      labels: ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'],
+      datasets: [{
+        data: [
+          orders.pending || 0,
+          orders.confirmed || 0,
+          orders.shipped || 0,
+          orders.delivered || 0,
+          orders.cancelled || 0
+        ],
+        backgroundColor: [
+          '#FF9800', // Orange for pending
+          '#2196F3', // Blue for confirmed
+          '#9C27B0', // Purple for shipped
+          '#4CAF50', // Green for delivered
+          '#F44336'  // Red for cancelled
+        ],
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    };
+    
+    // Payment Status Distribution Chart
+    const paymentStatusData = {
+      labels: ['Pending', 'Completed', 'Failed', 'Processing', 'Refunded'],
+      datasets: [{
+        data: [
+          payments.pending || 0,
+          payments.completed || 0,
+          payments.failed || 0,
+          payments.processing || 0,
+          payments.refunded || 0
+        ],
+        backgroundColor: [
+          '#FF9800', // Orange for pending
+          '#4CAF50', // Green for completed
+          '#F44336', // Red for failed
+          '#2196F3', // Blue for processing
+          '#9C27B0'  // Purple for refunded
+        ],
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    };
+    
+    // Revenue Trend Chart (mock data for now)
+    const revenueTrendData = {
+      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+      datasets: [{
+        label: 'Revenue',
+        data: [0, 0, 0, 0, 0, revenue.total || 0],
+        borderColor: '#4CAF50',
+        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+        fill: true,
+        tension: 0.4
+      }]
+    };
+    
+    // Orders Over Time Chart (mock data for now)
+    const ordersOverTimeData = {
+      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+      datasets: [{
+        label: 'Orders',
+        data: [0, 0, 0, 0, 0, orders.total || 0],
+        backgroundColor: '#2196F3',
+        borderColor: '#1976D2',
+        borderWidth: 2
+      }]
+    };
+    
+    setChartData({
+      orderStatus: orderStatusData,
+      paymentStatus: paymentStatusData,
+      revenueTrend: revenueTrendData,
+      ordersOverTime: ordersOverTimeData
+    });
+  };
+
+  const loadAnalytics = async () => {
+    try {
+      const response = await apiService.getAnalytics();
+      if (response.success && response.data) {
+        // Use the correct data structure from the analytics response
+        const summary = response.data.summary || {};
+        const orders = response.data.orders || {};
+        
+        setTotalRevenue(summary.totalRevenue || 0);
+        setTotalPendingOrders(summary.pendingOrders || orders.pending || 0);
+        setTotalOrderCount(summary.totalOrders || orders.total || 0);
+        
+        // Prepare chart data
+        prepareChartData(response.data);
+      } else {
+        // If analytics API failed, try fallback method
+        console.log('Analytics API failed, trying fallback method...');
+        const fallbackResponse = await apiService.getAnalyticsFromOrders();
+        if (fallbackResponse.success && fallbackResponse.data) {
+          console.log('Fallback analytics data:', fallbackResponse.data);
+          setTotalRevenue(fallbackResponse.data.totalRevenue || 0);
+          setTotalPendingOrders(fallbackResponse.data.pendingOrders || 0);
+          if (fallbackResponse.data.totalOrders) {
+            setTotalOrderCount(fallbackResponse.data.totalOrders);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load analytics:', error);
+      // If analytics fails, we'll rely on pagination data for order count
+      // Don't throw error, just log it and continue
     }
   };
 
@@ -195,6 +348,9 @@ const AdminDashboard = () => {
         
         // Refresh orders data from server to ensure consistency
         await loadOrders(orderPage);
+        
+        // Refresh analytics to update totals
+        await loadAnalytics();
         
         // Show success message
         setSuccessMessage('Cập nhật trạng thái đơn hàng thành công!');
@@ -241,6 +397,9 @@ const AdminDashboard = () => {
         
         // Refresh orders data from server to ensure consistency
         await loadOrders(orderPage);
+        
+        // Refresh analytics to update totals
+        await loadAnalytics();
       } else {
         setError('Cập nhật trạng thái thanh toán thất bại');
       }
@@ -398,12 +557,12 @@ const AdminDashboard = () => {
     );
   }, [filteredUsers, userPage, usersPerPage]);
 
-  // Calculate analytics from orders
-  const totalRevenue = useMemo(() => {
+  // Calculate analytics from orders (for current page only)
+  const currentPageRevenue = useMemo(() => {
     return orders.reduce((sum, order) => sum + (order.total || order.totalAmount || 0), 0);
   }, [orders]);
   
-  const pendingOrders = useMemo(() => {
+  const currentPagePendingOrders = useMemo(() => {
     return orders.filter(order => (order.status || order.orderStatus) === 'pending').length;
   }, [orders]);
 
@@ -477,14 +636,14 @@ const AdminDashboard = () => {
 
   const AnalyticsCards = () => (
     <Grid container spacing={3} sx={{ mb: 3 }}>
-      <Grid item xs={12} sm={6} md={3}>
+      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
         <Card>
           <CardContent>
             <Box display="flex" alignItems="center">
               <ShoppingCart sx={{ fontSize: 40, color: '#39095D', mr: 2 }} />
               <Box>
                 <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                  {orders.length}
+                  {totalOrderCount}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Total Orders
@@ -495,7 +654,7 @@ const AdminDashboard = () => {
         </Card>
       </Grid>
       
-      <Grid item xs={12} sm={6} md={3}>
+      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
         <Card>
           <CardContent>
             <Box display="flex" alignItems="center">
@@ -513,7 +672,7 @@ const AdminDashboard = () => {
         </Card>
       </Grid>
       
-      <Grid item xs={12} sm={6} md={3}>
+      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
         <Card>
           <CardContent>
             <Box display="flex" alignItems="center">
@@ -531,14 +690,14 @@ const AdminDashboard = () => {
         </Card>
       </Grid>
       
-      <Grid item xs={12} sm={6} md={3}>
+      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
         <Card>
           <CardContent>
             <Box display="flex" alignItems="center">
               <TrendingUp sx={{ fontSize: 40, color: '#2196F3', mr: 2 }} />
               <Box>
                 <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                  {pendingOrders}
+                  {totalPendingOrders}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Pending Orders
@@ -549,6 +708,215 @@ const AdminDashboard = () => {
         </Card>
       </Grid>
     </Grid>
+  );
+
+  const AnalyticsTab = () => (
+    <Box>
+      {/* Key Metrics Summary */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Conversion Rate
+              </Typography>
+              <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#4CAF50' }}>
+                {totalOrderCount > 0 ? Math.round((totalOrderCount / users.length) * 100) : 0}%
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Orders per User
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Average Order Value
+              </Typography>
+              <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#2196F3' }}>
+                {totalOrderCount > 0 ? formatPrice(totalRevenue / totalOrderCount) : formatPrice(0)}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Revenue per Order
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Pending Rate
+              </Typography>
+              <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#FF9800' }}>
+                {totalOrderCount > 0 ? Math.round((totalPendingOrders / totalOrderCount) * 100) : 0}%
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Orders Pending
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Completion Rate
+              </Typography>
+              <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#9C27B0' }}>
+                {totalOrderCount > 0 ? Math.round(((totalOrderCount - totalPendingOrders) / totalOrderCount) * 100) : 0}%
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Orders Completed
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Charts */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+      <Grid size={{ xs: 12, md: 6 }}>
+        <Card>
+          <CardContent>
+            <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+              <PieChart sx={{ mr: 1 }} />
+              Order Status Distribution
+            </Typography>
+            <Box sx={{ height: 300, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              {chartData.orderStatus.labels ? (
+                <Pie 
+                  data={chartData.orderStatus}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        position: 'bottom'
+                      }
+                    }
+                  }}
+                />
+              ) : (
+                <CircularProgress />
+              )}
+            </Box>
+          </CardContent>
+        </Card>
+      </Grid>
+      
+      <Grid size={{ xs: 12, md: 6 }}>
+        <Card>
+          <CardContent>
+            <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+              <PieChart sx={{ mr: 1 }} />
+              Payment Status Distribution
+            </Typography>
+            <Box sx={{ height: 300, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              {chartData.paymentStatus.labels ? (
+                <Doughnut 
+                  data={chartData.paymentStatus}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        position: 'bottom'
+                      }
+                    }
+                  }}
+                />
+              ) : (
+                <CircularProgress />
+              )}
+            </Box>
+          </CardContent>
+        </Card>
+      </Grid>
+      
+      <Grid size={{ xs: 12, md: 6 }}>
+        <Card>
+          <CardContent>
+            <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+              <ShowChart sx={{ mr: 1 }} />
+              Revenue Trend
+            </Typography>
+            <Box sx={{ height: 300 }}>
+              {chartData.revenueTrend.labels ? (
+                <Line 
+                  data={chartData.revenueTrend}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        display: false
+                      }
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        ticks: {
+                          callback: function(value) {
+                            return formatPrice(value);
+                          }
+                        }
+                      }
+                    }
+                  }}
+                />
+              ) : (
+                <Box sx={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <CircularProgress />
+                </Box>
+              )}
+            </Box>
+          </CardContent>
+        </Card>
+      </Grid>
+      
+      <Grid size={{ xs: 12, md: 6 }}>
+        <Card>
+          <CardContent>
+            <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+              <BarChart sx={{ mr: 1 }} />
+              Orders Over Time
+            </Typography>
+            <Box sx={{ height: 300 }}>
+              {chartData.ordersOverTime.labels ? (
+                <Bar 
+                  data={chartData.ordersOverTime}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        display: false
+                      }
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true
+                      }
+                    }
+                  }}
+                />
+              ) : (
+                <Box sx={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <CircularProgress />
+                </Box>
+              )}
+            </Box>
+          </CardContent>
+        </Card>
+      </Grid>
+    </Grid>
+    </Box>
   );
 
   const OrdersTab = () => (
@@ -852,11 +1220,13 @@ const AdminDashboard = () => {
           >
             <Tab label="Orders" />
             <Tab label="Users" />
+            <Tab label="Analytics" />
           </Tabs>
 
           <Box sx={{ p: 3 }}>
             {activeTab === 0 && <OrdersTab />}
             {activeTab === 1 && <UsersTab />}
+            {activeTab === 2 && <AnalyticsTab />}
           </Box>
         </Paper>
 
