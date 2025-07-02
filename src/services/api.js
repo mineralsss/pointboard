@@ -3,10 +3,10 @@ import axios from "axios";
 class ApiService {
   constructor() {
     // Fix the process.env reference
-    const apiUrl =
-      import.meta.env?.VITE_API_URL ||
-      (typeof process !== "undefined" && process.env?.REACT_APP_API_URL) ||
-       "/api/v1";
+    const apiUrl = "http://localhost:3000/api/v1";
+      // import.meta.env?.VITE_API_URL ||
+      // (typeof process !== "undefined" && process.env?.REACT_APP_API_URL) ||
+      //  "/api/v1";
 
     this.axios = axios.create({
       baseURL: apiUrl,
@@ -490,6 +490,72 @@ class ApiService {
       
     } catch (error) {
       console.error("❌ Test failed:", error);
+      throw error;
+    }
+  }
+
+  // Review API methods
+  async getReviews(params = {}) {
+    // params: { product, order, user, ... }
+    try {
+      const response = await this.axios.get('/reviews', { params });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getReviewById(id) {
+    try {
+      const response = await this.axios.get(`/reviews/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async createReview(reviewData) {
+    try {
+      const response = await this.axios.post('/reviews', reviewData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async updateReview(id, reviewData) {
+    try {
+      const response = await this.axios.patch(`/reviews/${id}`, reviewData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async deleteReview(id) {
+    try {
+      const response = await this.axios.delete(`/reviews/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Product API methods
+  async createProduct(productData) {
+    try {
+      const response = await this.axios.post('/products', productData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getProducts(params = {}) {
+    try {
+      const response = await this.axios.get('/products', { params });
+      return response.data;
+    } catch (error) {
       throw error;
     }
   }
