@@ -382,7 +382,7 @@ const AdminDashboard = () => {
           } : order
         ));
         
-        // Update selected order in dialog
+        // Update selected order in 
         setSelectedOrder(prev => ({
           ...prev,
           paymentStatus: newPaymentStatus,
@@ -1188,7 +1188,7 @@ const AdminDashboard = () => {
   return (
     <Base>
       <Container maxWidth="xl" sx={{ mt: 4, mb: 8 }}>
-        <Typography variant="h4" gutterBottom sx={{ color: '#39095D', fontWeight: 'bold' }}>
+        <Typography variant="h4" gutterBottom sx={{ color: '#FFF', fontWeight: 'bold' }}>
           <Dashboard sx={{ mr: 2, verticalAlign: 'bottom' }} />
           Admin Dashboard
         </Typography>
