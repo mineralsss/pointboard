@@ -121,13 +121,35 @@ const AdminDashboard = () => {
   const [userPage, setUserPage] = useState(1);
   const [usersPerPage] = useState(10);
 
+  // Review management states
+  const [reviews, setReviews] = useState([]);
+  const [reviewFilter, setReviewFilter] = useState('all');
+  const [reviewSearchTerm, setReviewSearchTerm] = useState('');
+  const [reviewSearchInput, setReviewSearchInput] = useState('');
+  const [reviewPage, setReviewPage] = useState(1);
+  const [reviewsPerPage] = useState(10);
+  const [selectedReview, setSelectedReview] = useState(null);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+
   // Refs to maintain focus
   const orderSearchRef = useRef(null);
   const userSearchRef = useRef(null);
+  const reviewSearchRef = useRef(null);
 
   // Debounce search
   const orderSearchTimeout = useRef(null);
   const userSearchTimeout = useRef(null);
+  const reviewSearchTimeout = useRef(null);
+
+  // Add after chartData state
+  const [reviewChartData, setReviewChartData] = useState({
+    ratingDistribution: {},
+    reviewsOverTime: {},
+    topProducts: {}
+  });
+
+  // Add state for product filter
+  const [reviewProductFilter, setReviewProductFilter] = useState('all');
 
   useEffect(() => {
     // Check if user is admin
@@ -139,11 +161,6 @@ const AdminDashboard = () => {
     loadDashboardData();
   }, [isAuthenticated, user, navigate]);
 
-
-
-  // Debug logging for selectedOrder
-
-
   const loadDashboardData = async () => {
     setLoading(true);
     setError('');
@@ -152,6 +169,7 @@ const AdminDashboard = () => {
       await Promise.all([
         loadOrders(1), // Always start with page 1 (newest orders)
         loadUsers(),
+        loadReviews(),
         loadAnalytics() // Load analytics data for accurate totals
       ]);
       // Reset to page 1 when loading dashboard data
@@ -171,8 +189,6 @@ const AdminDashboard = () => {
       if (response.success && response.data?.results && Array.isArray(response.data.results)) {
         // Trust server-side sorting and pagination - do not sort client-side
         // Server already returns orders sorted by createdAt desc (newest first)
-        
-
         
         setOrders(response.data.results);
         const { results, ...paginationData } = response.data;
@@ -200,6 +216,101 @@ const AdminDashboard = () => {
     } catch (error) {
       // Set empty users array if endpoint fails
       setUsers([]);
+    }
+  };
+
+  const loadReviews = async () => {
+    try {
+      // Get reviews
+      const response = await apiService.getReviews();
+      if (response.success && Array.isArray(response.data)) {
+        // Check if user and product data are already populated in reviews
+        const firstReview = response.data[0];
+        const isUserPopulated = firstReview && typeof firstReview.user === 'object' && firstReview.user !== null;
+        const isProductPopulated = firstReview && typeof firstReview.product === 'object' && firstReview.product !== null && !!firstReview.product.name;
+        // Only fetch users if they're not already populated
+        const userIds = isUserPopulated ? [] : [...new Set(response.data.map(review => review.user).filter(Boolean))];
+        // Only fetch products if they're not already populated
+        const productIds = isProductPopulated ? [] : [...new Set(response.data.map(review => review.product).filter(Boolean))];
+        // Fetch product details for all products
+        const productsMap = new Map();
+        if (productIds.length > 0) {
+          try {
+            const productsResponse = await apiService.getProducts();
+            if (productsResponse.success && Array.isArray(productsResponse.data)) {
+              let productsArray = [];
+              if (Array.isArray(productsResponse.data)) {
+                productsArray = productsResponse.data;
+              } else if (productsResponse.data && Array.isArray(productsResponse.data.results)) {
+                productsArray = productsResponse.data.results;
+              }
+              productsArray.forEach(product => {
+                if (product._id) productsMap.set(String(product._id), product);
+                if (product.id) productsMap.set(String(product.id), product);
+              });
+            }
+          } catch (productError) {
+            // Handle error
+          }
+        }
+        // Fetch user details for all users (only if not already populated)
+        const usersMap = new Map();
+        if (userIds.length > 0) {
+          try {
+            const usersResponse = await apiService.getAllUsers();
+            if (usersResponse.success && Array.isArray(usersResponse.users)) {
+              usersResponse.users.forEach(user => {
+                usersMap.set(user._id, user);
+              });
+            }
+          } catch (userError) {
+            // Handle error
+          }
+        }
+        // Enhance reviews with product and user information
+        const enhancedReviews = response.data.map(review => {
+          // Handle user data (already populated or needs matching)
+          let matchedUser;
+          if (isUserPopulated && typeof review.user === 'object' && review.user !== null) {
+            matchedUser = review.user;
+          } else {
+            matchedUser = usersMap.get(review.user);
+            if (!matchedUser) {
+              matchedUser = usersMap.get(String(review.user));
+            }
+            if (!matchedUser) {
+              matchedUser = Array.from(usersMap.values()).find(user => 
+                user._id === review.user || 
+                String(user._id) === String(review.user) ||
+                user.id === review.user
+              );
+            }
+          }
+          // Handle product data (already populated or needs matching)
+          let matchedProduct;
+          if (isProductPopulated && typeof review.product === 'object' && review.product !== null) {
+            matchedProduct = review.product;
+          } else {
+            matchedProduct = productsMap.get(String(review.product));
+            if (!matchedProduct) {
+              matchedProduct = Array.from(productsMap.values()).find(product => 
+                String(product._id) === String(review.product) ||
+                String(product.id) === String(review.product)
+              );
+            }
+          }
+          return {
+            ...review,
+            product: matchedProduct || { name: `Product ID: ${review.product}`, _id: review.product },
+            user: matchedUser || { firstName: 'Unknown', lastName: 'User', email: `User ID: ${review.user}`, _id: review.user }
+          };
+        });
+        setReviews(enhancedReviews);
+      } else {
+        setReviews([]);
+      }
+    } catch (error) {
+      setReviews([]);
     }
   };
 
@@ -559,6 +670,35 @@ const AdminDashboard = () => {
     );
   }, [filteredUsers, userPage, usersPerPage]);
 
+  // Update filteredReviews to include product filter
+  const filteredReviews = useMemo(() => {
+    if (!Array.isArray(reviews)) return [];
+    return reviews.filter(review => {
+      const matchesProduct =
+        reviewProductFilter === 'all' ||
+        (typeof review.product === 'object'
+          ? review.product?.name === reviewProductFilter
+          : review.product === reviewProductFilter);
+      const matchesFilter = reviewFilter === 'all' || review.rating === parseInt(reviewFilter);
+      if (!reviewSearchTerm.trim()) return matchesProduct && matchesFilter;
+      const matchesSearch =
+        (review.comment || '').toLowerCase().includes(reviewSearchTerm.toLowerCase()) ||
+        (review.user?.firstName || '').toLowerCase().includes(reviewSearchTerm.toLowerCase()) ||
+        (review.user?.lastName || '').toLowerCase().includes(reviewSearchTerm.toLowerCase()) ||
+        (typeof review.product === 'object' && review.product?.name
+          ? review.product.name
+          : '').toLowerCase().includes(reviewSearchTerm.toLowerCase());
+      return matchesProduct && matchesFilter && matchesSearch;
+    });
+  }, [reviews, reviewFilter, reviewSearchTerm, reviewProductFilter]);
+
+  const paginatedReviews = useMemo(() => {
+    return filteredReviews.slice(
+      (reviewPage - 1) * reviewsPerPage,
+      reviewPage * reviewsPerPage
+    );
+  }, [filteredReviews, reviewPage, reviewsPerPage]);
+
   // Calculate analytics from orders (for current page only)
   const currentPageRevenue = useMemo(() => {
     return orders.reduce((sum, order) => sum + (order.total || order.totalAmount || 0), 0);
@@ -635,6 +775,87 @@ const AdminDashboard = () => {
     //   handleUserSearch(value);
     // }, 800);
   };
+
+  // Review search handlers
+  const handleReviewSearch = (searchTerm) => {
+    setReviewSearchTerm(searchTerm);
+    setReviewPage(1);
+  };
+
+  const handleReviewSearchKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      if (reviewSearchTimeout.current) {
+        clearTimeout(reviewSearchTimeout.current);
+      }
+      handleReviewSearch(reviewSearchInput);
+    }
+  };
+
+  const handleReviewSearchInputChange = (e) => {
+    const value = e.target.value;
+    setReviewSearchInput(value);
+    
+    if (reviewSearchTimeout.current) {
+      clearTimeout(reviewSearchTimeout.current);
+    }
+  };
+
+  // Prepare review chart data
+  const prepareReviewChartData = useCallback(() => {
+    // 1. Rating Distribution
+    const ratingCounts = [0, 0, 0, 0, 0]; // index 0 = 1 star, index 4 = 5 stars
+    reviews.forEach(r => {
+      if (r.rating >= 1 && r.rating <= 5) ratingCounts[r.rating - 1]++;
+    });
+
+    // 2. Reviews Over Time (by month)
+    const reviewsByMonth = {};
+    reviews.forEach(r => {
+      const date = new Date(r.createdAt);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      reviewsByMonth[key] = (reviewsByMonth[key] || 0) + 1;
+    });
+
+    // 3. Top Reviewed Products
+    const productCounts = {};
+    reviews.forEach(r => {
+      const name = typeof r.product === 'object' && r.product?.name ? r.product.name : r.product;
+      if (name) productCounts[name] = (productCounts[name] || 0) + 1;
+    });
+    const topProducts = Object.entries(productCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+
+    return {
+      ratingDistribution: {
+        labels: ['1 Star', '2 Stars', '3 Stars', '4 Stars', '5 Stars'],
+        datasets: [{
+          data: ratingCounts,
+          backgroundColor: ['#F44336', '#FF9800', '#FFEB3B', '#4CAF50', '#2196F3'],
+        }]
+      },
+      reviewsOverTime: {
+        labels: Object.keys(reviewsByMonth),
+        datasets: [{
+          label: 'Reviews',
+          data: Object.values(reviewsByMonth),
+          backgroundColor: '#2196F3'
+        }]
+      },
+      topProducts: {
+        labels: topProducts.map(([name]) => name),
+        datasets: [{
+          label: 'Reviews',
+          data: topProducts.map(([, count]) => count),
+          backgroundColor: '#4CAF50'
+        }]
+      }
+    };
+  }, [reviews]);
+
+  useEffect(() => {
+    setReviewChartData(prepareReviewChartData());
+  }, [reviews, prepareReviewChartData]);
 
   const AnalyticsCards = () => (
     <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -923,6 +1144,8 @@ const AdminDashboard = () => {
 
   const OrdersTab = () => (
     <Box>
+      {/* AnalyticsTab content at the top of OrdersTab */}
+      <AnalyticsTab />
       {/* Order Filters and Search */}
       <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
         <TextField
@@ -1174,6 +1397,242 @@ const AdminDashboard = () => {
     </Box>
   );
 
+  const ReviewsTab = () => (
+    <Box>
+      {/* Review Analytics Graphs */}
+      <Box sx={{ mb: 3 }}>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={4}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" sx={{ mb: 2 }}>Rating Distribution</Typography>
+                {reviewChartData.ratingDistribution.labels ? (
+                  <Pie data={reviewChartData.ratingDistribution} />
+                ) : (
+                  <CircularProgress />
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" sx={{ mb: 2 }}>Reviews Over Time</Typography>
+                {reviewChartData.reviewsOverTime.labels ? (
+                  <Bar data={reviewChartData.reviewsOverTime} />
+                ) : (
+                  <CircularProgress />
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" sx={{ mb: 2 }}>Top Reviewed Products</Typography>
+                {reviewChartData.topProducts.labels ? (
+                  <Bar data={reviewChartData.topProducts} />
+                ) : (
+                  <CircularProgress />
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </Box>
+      {/* Review Filters and Search */}
+      <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+        <TextField
+          ref={reviewSearchRef}
+          placeholder="Tìm kiếm đánh giá... (Nhấn Enter để tìm)"
+          value={reviewSearchInput}
+          onChange={handleReviewSearchInputChange}
+          onKeyPress={handleReviewSearchKeyPress}
+          InputProps={{
+            startAdornment: <Search sx={{ color: 'text.secondary', mr: 1 }} />
+          }}
+          size="small"
+          sx={{ minWidth: 250 }}
+        />
+        
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel>Product</InputLabel>
+          <Select
+            value={reviewProductFilter}
+            onChange={(e) => setReviewProductFilter(e.target.value)}
+            label="Product"
+          >
+            <MenuItem value="all">All Products</MenuItem>
+            {Array.from(new Set(reviews.map(r =>
+              typeof r.product === 'object' && r.product?.name
+                ? r.product.name
+                : r.product
+            ))).map((name, idx) => (
+              <MenuItem key={idx} value={name}>{name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        
+        <FormControl size="small" sx={{ minWidth: 120 }}>
+          <InputLabel>Rating</InputLabel>
+          <Select
+            value={reviewFilter}
+            onChange={(e) => setReviewFilter(e.target.value)}
+            label="Rating"
+          >
+            <MenuItem value="all">All Ratings</MenuItem>
+            <MenuItem value="5">5 Stars</MenuItem>
+            <MenuItem value="4">4 Stars</MenuItem>
+            <MenuItem value="3">3 Stars</MenuItem>
+            <MenuItem value="2">2 Stars</MenuItem>
+            <MenuItem value="1">1 Star</MenuItem>
+          </Select>
+        </FormControl>
+        
+        <Button
+          startIcon={<Refresh />}
+          onClick={() => loadReviews()}
+          variant="outlined"
+          size="small"
+        >
+          Refresh
+        </Button>
+        
+        {reviewSearchTerm && (
+          <Button
+            onClick={() => {
+              setReviewSearchTerm('');
+              setReviewSearchInput('');
+              setReviewPage(1);
+            }}
+            variant="outlined"
+            size="small"
+            color="secondary"
+          >
+            Clear Search
+          </Button>
+        )}
+      </Box>
+
+      {/* Reviews Table */}
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>User</TableCell>
+              <TableCell>Product</TableCell>
+              <TableCell>Rating</TableCell>
+              <TableCell>Comment</TableCell>
+              <TableCell>Date</TableCell>
+              <TableCell>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {paginatedReviews.length > 0 ? (
+              paginatedReviews.map((review) => (
+                <TableRow key={review._id} hover>
+                  <TableCell>
+                    {`${review.user?.firstName || ''} ${review.user?.lastName || ''}`}
+                    <Typography variant="caption" display="block" color="text.secondary">
+                      {review.user?.email || 'N/A'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight="medium">
+                      {typeof review.product === 'object' && review.product?.name 
+                        ? review.product.name 
+                        : `Product ID: ${typeof review.product === 'object' ? review.product?._id || review.product?.id : review.product || 'Unknown'}`}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      {[...Array(5)].map((_, index) => (
+                        <Box
+                          key={index}
+                          component="span"
+                          sx={{
+                            color: index < review.rating ? '#FFD700' : '#ddd',
+                            fontSize: '1rem'
+                          }}
+                        >
+                          ★
+                        </Box>
+                      ))}
+                      <Typography variant="body2" sx={{ ml: 1 }}>
+                        ({review.rating}/5)
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        maxWidth: 200,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {review.comment || 'No comment'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>{formatDate(review.createdAt)}</TableCell>
+                  <TableCell>
+                    <IconButton 
+                      size="small" 
+                      onClick={() => {
+                        setSelectedReview(review);
+                        setReviewDialogOpen(true);
+                      }}
+                    >
+                      <Visibility />
+                    </IconButton>
+                    <IconButton 
+                      size="small" 
+                      color="error"
+                      onClick={async () => {
+                        if (window.confirm('Are you sure you want to delete this review?')) {
+                          try {
+                            await apiService.deleteReview(review._id);
+                            setSuccessMessage('Review deleted successfully!');
+                            setTimeout(() => setSuccessMessage(''), 3000);
+                            loadReviews();
+                          } catch (error) {
+                            setError('Failed to delete review');
+                          }
+                        }
+                      }}
+                    >
+                      <Delete />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6} align="center">
+                  <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
+                    No reviews found
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Pagination */}
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+        <Pagination
+          count={Math.ceil(filteredReviews.length / reviewsPerPage)}
+          page={reviewPage}
+          onChange={(e, page) => setReviewPage(page)}
+          color="primary"
+        />
+      </Box>
+    </Box>
+  );
+
   if (loading) {
     return (
       <Base>
@@ -1222,13 +1681,13 @@ const AdminDashboard = () => {
           >
             <Tab label="Orders" />
             <Tab label="Users" />
-            <Tab label="Analytics" />
+            <Tab label="Reviews" />
           </Tabs>
 
           <Box sx={{ p: 3 }}>
             {activeTab === 0 && <OrdersTab />}
             {activeTab === 1 && <UsersTab />}
-            {activeTab === 2 && <AnalyticsTab />}
+            {activeTab === 2 && <ReviewsTab />}
           </Box>
         </Paper>
 
@@ -1331,6 +1790,73 @@ const AdminDashboard = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOrderDialogOpen(false)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Review Detail Dialog */}
+        <Dialog
+          open={reviewDialogOpen}
+          onClose={() => setReviewDialogOpen(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            Review Details
+          </DialogTitle>
+          <DialogContent>
+            {selectedReview && (
+              <Box>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="h6" gutterBottom>User Information</Typography>
+                    <Typography><strong>Name:</strong> {`${selectedReview.user?.firstName || ''} ${selectedReview.user?.lastName || ''}`}</Typography>
+                    <Typography><strong>Email:</strong> {selectedReview.user?.email || 'N/A'}</Typography>
+                    <Typography><strong>Phone:</strong> {selectedReview.user?.phoneNumber || 'N/A'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="h6" gutterBottom>Product Information</Typography>
+                    <Typography><strong>Product:</strong> {typeof selectedReview.product === 'object' && selectedReview.product?.name 
+                      ? selectedReview.product.name 
+                      : `Product ID: ${typeof selectedReview.product === 'object' ? selectedReview.product?._id || selectedReview.product?.id : selectedReview.product || 'Unknown'}`}</Typography>
+                    <Typography><strong>Price:</strong> {selectedReview.product?.price ? formatPrice(selectedReview.product.price) : 'N/A'}</Typography>
+                    <Typography><strong>Category:</strong> {selectedReview.product?.category || 'N/A'}</Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Typography variant="h6" gutterBottom>Review Details</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="body1" sx={{ mr: 2 }}><strong>Rating:</strong></Typography>
+                      {[...Array(5)].map((_, index) => (
+                        <Box
+                          key={index}
+                          component="span"
+                          sx={{
+                            color: index < selectedReview.rating ? '#FFD700' : '#ddd',
+                            fontSize: '1.5rem'
+                          }}
+                        >
+                          ★
+                        </Box>
+                      ))}
+                      <Typography variant="body1" sx={{ ml: 1 }}>
+                        ({selectedReview.rating}/5)
+                      </Typography>
+                    </Box>
+                    <Typography variant="body1" sx={{ mb: 2 }}>
+                      <strong>Comment:</strong>
+                    </Typography>
+                    <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, mb: 2 }}>
+                      <Typography variant="body1">
+                        {selectedReview.comment || 'No comment provided'}
+                      </Typography>
+                    </Box>
+                    <Typography><strong>Date:</strong> {formatDate(selectedReview.createdAt)}</Typography>
+                  </Grid>
+                </Grid>
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setReviewDialogOpen(false)}>Close</Button>
           </DialogActions>
         </Dialog>
       </Container>

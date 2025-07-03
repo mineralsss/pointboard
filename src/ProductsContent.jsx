@@ -25,6 +25,8 @@ import CloseIcon from '@mui/icons-material/Close';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
+import StarHalfIcon from '@mui/icons-material/StarHalf';
 import Rating from '@mui/material/Rating';
 import { useCart } from './contexts/CartContext';
 import { useCartUpdate } from './contexts/CartUpdateContext';
@@ -231,17 +233,20 @@ function ProductsContent() {
     const fullStars = Math.floor(rating);
     const hasHalfStar = rating % 1 !== 0;
 
+    // Add full stars
     for (let i = 0; i < fullStars; i++) {
       stars.push(<StarIcon key={i} sx={{ color: '#FFD700', fontSize: '1rem' }} />);
     }
 
+    // Add half star if needed
     if (hasHalfStar) {
-      stars.push(<StarIcon key="half" sx={{ color: '#FFD700', fontSize: '1rem' }} />);
+      stars.push(<StarHalfIcon key="half" sx={{ color: '#FFD700', fontSize: '1rem' }} />);
     }
 
+    // Add empty stars
     const emptyStars = 5 - Math.ceil(rating);
     for (let i = 0; i < emptyStars; i++) {
-      stars.push(<StarIcon key={`empty-${i}`} sx={{ color: '#FFD700', fontSize: '1rem' }} />);
+      stars.push(<StarBorderIcon key={`empty-${i}`} sx={{ color: 'rgba(255, 255, 255, 0.3)', fontSize: '1rem' }} />);
     }
 
     return stars;
