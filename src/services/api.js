@@ -117,6 +117,22 @@ class ApiService {
     }
   }
 
+  // Resend verification email
+  async resendVerificationEmail(email) {
+    try {
+      const response = await this.axios.post("/auth/resend-verification", { email });
+      return response.data;
+    } catch (error) {
+      console.error("resendVerificationEmail error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
+  }
+
   // Password Reset Methods
   async forgotPassword(email) {
     try {

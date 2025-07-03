@@ -615,10 +615,21 @@ async function checkTransactionStatus(transactionId) {
 
       if (response.success) {
         console.log('Order placed successfully!', response.data);
+        console.log('🔍 Order number debugging:', {
+          frontendGenerated: orderRef,
+          backendResponse: response.data,
+          orderNumber: response.data.orderNumber,
+          orderRef: response.data.orderRef,
+          orderId: response.data.orderId,
+          _id: response.data._id
+        });
         
         // Update order ID with the one from backend to ensure sync
         let newOrderRef = null;
-        if (response.data.orderRef) {
+        if (response.data.orderNumber) {
+          newOrderRef = response.data.orderNumber;
+          setOrderId(response.data.orderNumber);
+        } else if (response.data.orderRef) {
           newOrderRef = response.data.orderRef;
           setOrderId(response.data.orderRef);
         } else if (response.data.orderId) {
@@ -687,7 +698,7 @@ async function checkTransactionStatus(transactionId) {
             Thank you for your order!
           </Typography>
           <Typography variant="subtitle1" sx={{ mb: 2 }}>
-            Your order number is #{orderRef}. We will send you an email confirmation,
+            Your order number is #{orderId || orderRef}. We will send you an email confirmation,
             and will notify you when your order has shipped.
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>

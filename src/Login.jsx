@@ -16,15 +16,20 @@ import {
   Checkbox,
   FormControlLabel,
   CircularProgress,
+  Snackbar,
 } from "@mui/material";
 import {
   Visibility,
   VisibilityOff,
   Google,
   Facebook,
+  Error,
+  Warning,
+  Info,
 } from "@mui/icons-material";
 import Base from "./base";
 import { useAuth } from "./contexts/AuthContext";
+import apiService from "./services/api";
 
 const Login = () => {
   console.log('🔵 Login component rendered');
@@ -38,9 +43,16 @@ const Login = () => {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [generalError, setGeneralError] = useState("");
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'error', // 'error', 'warning', 'info', 'success'
+  });
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
 
   const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Console log component mount and state changes
   useEffect(() => {
@@ -67,6 +79,19 @@ const Login = () => {
   useEffect(() => {
     console.log('🔵 Errors changed:', errors);
   }, [errors]);
+
+  // Show registration success message if present in navigation state
+  useEffect(() => {
+    if (location.state && location.state.message) {
+      setSnackbar({
+        open: true,
+        message: location.state.message,
+        severity: 'success',
+      });
+      // Optionally clear the message from state so it doesn't reappear
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   const handleInputChange = (event) => {
     const { name, value, checked } = event.target;
@@ -105,6 +130,174 @@ const Login = () => {
 
     console.log('🔵 Validation errors:', newErrors);
     return newErrors;
+  };
+
+  const getErrorMessage = (error) => {
+    // Handle different types of login errors
+    if (error.response?.status === 401) {
+      const errorData = error.response?.data;
+      
+      // Check for specific error codes from backend
+      if (errorData?.errorCode === 'INVALID_CREDENTIALS') {
+        return {
+          message: "Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại thông tin đăng nhập.",
+          severity: 'error'
+        };
+      }
+      
+      // Check for specific error messages from backend (fallback)
+      if (errorData?.message) {
+        const message = errorData.message.toLowerCase();
+        
+        if (message.includes('email not verified') || message.includes('unverified')) {
+          return {
+            message: "Tài khoản chưa được xác thực. Vui lòng kiểm tra email và xác thực tài khoản trước khi đăng nhập.",
+            severity: 'warning',
+            action: 'resend'
+          };
+        }
+        
+        if (message.includes('invalid credentials') || message.includes('incorrect')) {
+          return {
+            message: "Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại thông tin đăng nhập.",
+            severity: 'error'
+          };
+        }
+        
+        if (message.includes('account not found') || message.includes('user not found')) {
+          return {
+            message: "Tài khoản không tồn tại. Vui lòng kiểm tra email hoặc đăng ký tài khoản mới.",
+            severity: 'error'
+          };
+        }
+        
+        if (message.includes('account locked') || message.includes('suspended')) {
+          return {
+            message: "Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ để được trợ giúp.",
+            severity: 'error'
+          };
+        }
+        
+        if (message.includes('too many attempts')) {
+          return {
+            message: "Quá nhiều lần đăng nhập thất bại. Vui lòng thử lại sau 15 phút hoặc sử dụng chức năng quên mật khẩu.",
+            severity: 'warning'
+          };
+        }
+      }
+      
+      // Default 401 error
+      return {
+        message: "Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại thông tin đăng nhập.",
+        severity: 'error'
+      };
+    }
+    
+    if (error.response?.status === 403) {
+      const errorData = error.response?.data;
+      
+      // Check for specific error codes from backend
+      if (errorData?.errorCode === 'ACCOUNT_NOT_VERIFIED') {
+        return {
+          message: "Tài khoản chưa được xác thực. Vui lòng kiểm tra email và xác thực tài khoản trước khi đăng nhập.",
+          severity: 'warning',
+          action: 'resend'
+        };
+      }
+      
+      return {
+        message: "Tài khoản đã bị khóa hoặc không có quyền truy cập. Vui lòng liên hệ hỗ trợ.",
+        severity: 'error'
+      };
+    }
+    
+    if (error.response?.status === 404) {
+      return {
+        message: "Tài khoản không tồn tại. Vui lòng kiểm tra email hoặc đăng ký tài khoản mới.",
+        severity: 'error'
+      };
+    }
+    
+    if (error.response?.status === 429) {
+      return {
+        message: "Quá nhiều yêu cầu đăng nhập. Vui lòng thử lại sau vài phút.",
+        severity: 'warning'
+      };
+    }
+    
+    if (error.response?.status >= 500) {
+      return {
+        message: "Lỗi máy chủ. Vui lòng thử lại sau hoặc liên hệ hỗ trợ nếu vấn đề vẫn tiếp tục.",
+        severity: 'error'
+      };
+    }
+    
+    if (error.code === 'NETWORK_ERROR' || error.message?.includes('Network Error')) {
+      return {
+        message: "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối internet và thử lại.",
+        severity: 'error'
+      };
+    }
+    
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      return {
+        message: "Kết nối bị gián đoạn. Vui lòng thử lại.",
+        severity: 'warning'
+      };
+    }
+    
+    // Default error
+    return {
+      message: error.message || "Đăng nhập thất bại. Vui lòng thử lại.",
+      severity: 'error'
+    };
+  };
+
+  const showSnackbar = (message, severity = 'error') => {
+    setSnackbar({
+      open: true,
+      message,
+      severity
+    });
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar(prev => ({ ...prev, open: false }));
+  };
+
+  const handleResendVerification = async () => {
+    try {
+      console.log('🔵 Resending verification email to:', formData.email);
+      
+      if (!formData.email) {
+        showSnackbar('Vui lòng nhập email để gửi lại email xác thực.', 'warning');
+        return;
+      }
+
+      setIsResendingVerification(true);
+      const result = await apiService.resendVerificationEmail(formData.email);
+      
+      if (result.success) {
+        showSnackbar('Email xác thực đã được gửi lại. Vui lòng kiểm tra hộp thư.', 'success');
+      } else {
+        showSnackbar(result.message || 'Không thể gửi email xác thực. Vui lòng thử lại sau.', 'error');
+      }
+    } catch (error) {
+      console.error('🔴 Error resending verification:', error);
+      
+      // Handle specific error cases
+      if (error.response?.status === 404) {
+        showSnackbar('Email không tồn tại trong hệ thống. Vui lòng kiểm tra lại.', 'error');
+      } else if (error.response?.status === 429) {
+        showSnackbar('Quá nhiều yêu cầu gửi email. Vui lòng thử lại sau vài phút.', 'warning');
+      } else if (error.response?.status >= 500) {
+        showSnackbar('Lỗi máy chủ. Vui lòng thử lại sau.', 'error');
+      } else {
+        showSnackbar('Không thể gửi email xác thực. Vui lòng thử lại sau.', 'error');
+      }
+    } finally {
+      setIsResendingVerification(false);
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -151,22 +344,36 @@ const Login = () => {
           console.log(`🟢 Logged in as: ${userName}`);
           console.log('🟢 User data:', userData);
           setGeneralError(""); // Clear any previous errors
+          
+          // Show success message
+          showSnackbar(`Đăng nhập thành công! Chào mừng ${userName}`, 'success');
         }
         
         console.log('🔵 Navigating to /mainmenu');
         navigate("/mainmenu", { replace: true });
       } else {
         console.log("🔴 Login failed:", result.message);
-        setErrors({ submit: result.message || "Login failed" });
-        setGeneralError(result.message || "Login failed");
+        const errorInfo = getErrorMessage({ message: result.message });
+        setErrors({ submit: errorInfo.message });
+        setGeneralError(errorInfo.message);
+        showSnackbar(errorInfo.message, errorInfo.severity);
       }
       
     } catch (error) {
       console.log("🔴 Login error caught:", error);
       console.log("🔴 Error message:", error.message);
       console.log("🔴 Error stack:", error.stack);
-      setErrors({ submit: error.message || "Login failed" });
-      setGeneralError(error.message || "Login failed"); // Set general error
+      
+      const errorInfo = getErrorMessage(error);
+      setErrors({ submit: errorInfo.message });
+      setGeneralError(errorInfo.message);
+      showSnackbar(errorInfo.message, errorInfo.severity);
+      
+      // Handle specific error types
+      if (errorInfo.action === 'resend') {
+        // Add a button or link to resend verification email
+        console.log('🔵 User needs to verify email');
+      }
     } finally {
       console.log('🔵 Login process completed, setting loading to false');
       setIsLoading(false);
@@ -175,12 +382,12 @@ const Login = () => {
 
   const handleGoogleLogin = () => {
     console.log("🔵 Google login clicked");
-    // Implement Google login here
+    showSnackbar('Tính năng đăng nhập bằng Google sẽ sớm có mặt!', 'info');
   };
 
   const handleFacebookLogin = () => {
     console.log("🔵 Facebook login clicked");
-    // Implement Facebook login here
+    showSnackbar('Tính năng đăng nhập bằng Facebook sẽ sớm có mặt!', 'info');
   };
 
   const handlePasswordVisibilityToggle = () => {
@@ -253,12 +460,52 @@ const Login = () => {
             </Box>
 
             {errors.submit && (
-              <Alert severity="error" sx={{ mb: 2 }}>
+              <Alert 
+                severity="error" 
+                sx={{ mb: 2 }}
+                action={
+                  generalError.includes('chưa được xác thực') && (
+                    <Button 
+                      color="inherit" 
+                      size="small" 
+                      onClick={handleResendVerification}
+                      disabled={isResendingVerification}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      {isResendingVerification ? (
+                        <CircularProgress size={16} color="inherit" />
+                      ) : (
+                        'Gửi lại email'
+                      )}
+                    </Button>
+                  )
+                }
+              >
                 {errors.submit}
               </Alert>
             )}
-            {generalError && (
-              <Alert severity="error" sx={{ mb: 2 }}>
+            {generalError && !errors.submit && (
+              <Alert 
+                severity="error" 
+                sx={{ mb: 2 }}
+                action={
+                  generalError.includes('chưa được xác thực') && (
+                    <Button 
+                      color="inherit" 
+                      size="small" 
+                      onClick={handleResendVerification}
+                      disabled={isResendingVerification}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      {isResendingVerification ? (
+                        <CircularProgress size={16} color="inherit" />
+                      ) : (
+                        'Gửi lại email'
+                      )}
+                    </Button>
+                  )
+                }
+              >
                 {generalError}
               </Alert>
             )}
@@ -443,6 +690,27 @@ const Login = () => {
           </Paper>
         </Box>
       </Container>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+          icon={
+            snackbar.severity === 'error' ? <Error /> :
+            snackbar.severity === 'warning' ? <Warning /> :
+            <Info />
+          }
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Base>
   );
 }

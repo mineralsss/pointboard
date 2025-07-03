@@ -149,7 +149,7 @@ function Register() {
       }
 
       await register(registerData);
-      navigate("/login", { state: { message: "Registration successful!" } });
+      navigate("/login", { state: { message: "A verify email has been sent to your email, please follow the instruction to login." } });
     } catch (error) {
       setGeneralError("Registration failed. Please try again.");
       console.error("Registration error in handleSubmit:", error);
