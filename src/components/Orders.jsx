@@ -13,7 +13,7 @@ import {
   Button,
   Divider
 } from '@mui/material';
-import { ShoppingBag, AccessTime, CheckCircle, LocalShipping, AttachMoney } from '@mui/icons-material';
+import { ShoppingBag, AccessTime, CheckCircle, LocalShipping, Payment, AccountBalance } from '@mui/icons-material';
 import Base from '../base';
 import { useAuth } from '../contexts/AuthContext';
 import apiService from '../services/api';
@@ -189,7 +189,7 @@ const Orders = () => {
                         />
                         <br />
                         <Chip
-                          icon={<AttachMoney sx={{ fontSize: 16 }} />}
+                          icon={<AccountBalance sx={{ fontSize: 16 }} />}
                           label={order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
                           color={getPaymentStatusColor(order.paymentStatus)}
                           size="small"

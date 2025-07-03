@@ -44,7 +44,9 @@ import {
   Refresh,
   BarChart,
   PieChart,
-  ShowChart
+  ShowChart,
+  MonetizationOn,
+  AccountBalance
 } from '@mui/icons-material';
 import {
   Chart as ChartJS,
@@ -658,7 +660,7 @@ const AdminDashboard = () => {
         <Card>
           <CardContent>
             <Box display="flex" alignItems="center">
-              <AttachMoney sx={{ fontSize: 40, color: '#4CAF50', mr: 2 }} />
+              <AccountBalance sx={{ fontSize: 40, color: '#4CAF50', mr: 2 }} />
               <Box>
                 <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
                   {formatPrice(totalRevenue)}
