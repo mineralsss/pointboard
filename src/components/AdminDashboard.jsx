@@ -152,12 +152,26 @@ const AdminDashboard = () => {
   const [reviewProductFilter, setReviewProductFilter] = useState('all');
 
   useEffect(() => {
+    console.log('🔐 AdminDashboard Auth Check:', {
+      isAuthenticated,
+      user: user ? { ...user, role: user.role } : null,
+      hasToken: !!localStorage.getItem('token'),
+      token: localStorage.getItem('token')?.substring(0, 20) + '...'
+    });
+    
     // Check if user is admin
     if (!isAuthenticated || !user || user.role !== 'admin') {
+      console.log('❌ Admin access denied:', {
+        isAuthenticated,
+        hasUser: !!user,
+        userRole: user?.role,
+        expectedRole: 'admin'
+      });
       navigate('/login');
       return;
     }
     
+    console.log('✅ Admin access granted, loading dashboard data...');
     loadDashboardData();
   }, [isAuthenticated, user, navigate]);
 
@@ -183,8 +197,22 @@ const AdminDashboard = () => {
 
   const loadOrders = async (page = 1) => {
     try {
+      console.log('📋 Loading orders for admin dashboard...', {
+        page,
+        ordersPerPage,
+        hasToken: !!localStorage.getItem('token'),
+        tokenPreview: localStorage.getItem('token')?.substring(0, 20) + '...'
+      });
+      
       // Request orders sorted by creation date (newest first)
       const response = await apiService.getAllOrders(page, ordersPerPage, 'createdAt', 'desc');
+      
+      console.log('✅ Orders loaded successfully:', {
+        success: response.success,
+        hasData: !!response.data,
+        hasResults: !!response.data?.results,
+        resultsCount: response.data?.results?.length || 0
+      });
       
       if (response.success && response.data?.results && Array.isArray(response.data.results)) {
         // Trust server-side sorting and pagination - do not sort client-side
@@ -200,6 +228,12 @@ const AdminDashboard = () => {
         setError(response.message || 'Không thể tải danh sách đơn hàng hoặc dữ liệu không hợp lệ.');
       }
     } catch (error) {
+      console.error('❌ Error loading orders:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
       setOrders([]);
       setError('Lỗi khi tải danh sách đơn hàng: ' + (error.message || 'Vui lòng thử lại sau.'));
     }

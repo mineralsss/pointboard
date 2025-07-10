@@ -301,14 +301,31 @@ class ApiService {
   // Admin Methods
   async getAllOrders(page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc') {
     try {
+      console.log('🔐 getAllOrders - Making request with auth:', {
+        url: `/orders/all?page=${page}&limit=${limit}&sortBy=${sortBy}&sortOrder=${sortOrder}`,
+        hasToken: !!localStorage.getItem('token'),
+        tokenPreview: localStorage.getItem('token')?.substring(0, 20) + '...',
+        headers: this.axios.defaults.headers
+      });
+      
       const response = await this.axios.get(`/orders/all?page=${page}&limit=${limit}&sortBy=${sortBy}&sortOrder=${sortOrder}`);
+      
+      console.log('✅ getAllOrders - Success:', {
+        status: response.status,
+        hasData: !!response.data,
+        success: response.data?.success
+      });
+      
       return response.data;
     } catch (error) {
-      console.error("getAllOrders error details:", {
+      console.error("❌ getAllOrders error details:", {
         status: error.response?.status,
         statusText: error.response?.statusText,
         data: error.response?.data,
-        message: error.message
+        message: error.message,
+        url: error.config?.url,
+        method: error.config?.method,
+        headers: error.config?.headers
       });
       throw error;
     }
@@ -416,24 +433,44 @@ class ApiService {
     }
   }
 
-  // Create order from orderRef using backend endpoint
+  // Create order from orderRef using backend endpoint (Option 1 Fix Integration)
   async createOrderFromRef(orderData) {
     try {
       console.log("🚀 Creating order from orderRef:", orderData.orderRef);
       console.log("📦 Request data:", orderData);
       
-      const response = await this.axios.post("/orders/create-from-ref", orderData);
+      // Prepare the request data with Option 1 fix structure
+      const requestData = {
+        orderRef: orderData.orderRef, // Frontend generated reference (PointBoardA...)
+        orderNumber: orderData.orderNumber, // Backend's official order number
+        totalAmount: orderData.totalAmount,
+        transactionStatus: orderData.transactionStatus || 'pending',
+        paymentMethod: orderData.paymentMethod || 'bank_transfer',
+        customerInfo: orderData.customerInfo || {},
+        address: orderData.address || {},
+        items: orderData.items || [],
+        notes: orderData.notes || ''
+      };
+      
+      console.log("📤 Sending to backend with Option 1 structure:", requestData);
+      
+      const response = await this.axios.post("/orders/create-from-ref", requestData);
       
       console.log("✅ Backend response:", response.data);
       
+      // Return structured response that matches your frontend expectations
       return {
         success: response.data.success,
         data: response.data.data,
         message: response.data.message,
-        orderRef: response.data.data?.orderNumber || orderData.orderRef,
+        // Use backend's official order number for consistency
+        orderRef: response.data.data?.orderNumber || response.data.data?.paymentCode || orderData.orderNumber,
         paymentStatus: response.data.data?.paymentStatus,
         orderStatus: response.data.data?.orderStatus,
-        orderId: response.data.data?._id
+        orderId: response.data.data?._id,
+        // Additional fields for debugging
+        frontendOrderRef: orderData.orderRef,
+        backendOrderNumber: response.data.data?.orderNumber || response.data.data?.paymentCode
       };
     } catch (error) {
       console.error("createOrderFromRef error details:", {
@@ -446,69 +483,80 @@ class ApiService {
     }
   }
 
-  // Test function to create order with specific orderRef using backend endpoint
-  async testCreateOrderFromRef(customOrderRef = null, transactionStatus = 'pending') {
-    const orderRef = customOrderRef || `POINTBOARDA${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`;
-    
-    const orderData = {
-      orderRef: orderRef,
-      transactionStatus: transactionStatus,
-      paymentMethod: 'bank_transfer',
-      address: {
-        fullName: "Test User",
-        phone: "0123456789",
-        address: "123 Test Street",
-        city: "Ho Chi Minh City",
-        district: "District 1",
-        ward: "Ward 1",
-        notes: "Test order address"
-      },
-      items: [
-        {
-          productId: "test-product-1",
-          productName: "Test Product 1",
-          quantity: 2,
-          price: 50000
-        },
-        {
-          productId: "test-product-2", 
-          productName: "Test Product 2",
-          quantity: 1,
-          price: 30000
-        }
-      ],
-      totalAmount: 130000,
-      customerInfo: {
-        fullName: "Test Customer",
-        phone: "0123456789",
-        email: "test@example.com"
-      },
-      notes: `Test order created via API with orderRef: ${orderRef} and status: ${transactionStatus}`
-    };
-
+  // Enhanced order creation with Option 1 fix integration
+  async createOrderWithRefSync(orderData, frontendOrderRef) {
     try {
-      console.log("🧪 Testing order creation from orderRef");
-      console.log("📋 OrderRef:", orderRef);
-      console.log("🔄 Transaction Status:", transactionStatus);
+      console.log("🔄 Creating order with reference synchronization");
+      console.log("📋 Frontend OrderRef:", frontendOrderRef);
+      console.log("📦 Order Data:", orderData);
       
-      const result = await this.createOrderFromRef(orderData);
+      // Step 1: Create the main order (your existing flow)
+      let orderResponse;
+      if (orderData.guestEmail) {
+        orderResponse = await this.createGuestOrder(orderData);
+      } else {
+        orderResponse = await this.createOrder(orderData);
+      }
       
-      console.log("🎯 Final result:", {
-        success: result.success,
-        orderRef: result.orderRef,
-        paymentStatus: result.paymentStatus,
-        orderStatus: result.orderStatus,
-        orderId: result.orderId,
-        message: result.message
-      });
+      if (!orderResponse.success) {
+        throw new Error(orderResponse.message || 'Failed to create main order');
+      }
       
-      return result;
+      // Step 2: Extract backend's official order number
+      const backendOrderNumber = orderResponse.data?.orderNumber || 
+                                orderResponse.data?.orderRef || 
+                                orderResponse.data?.orderId || 
+                                orderResponse.data?._id;
+      
+      console.log("✅ Main order created with backend number:", backendOrderNumber);
+      
+      // Step 3: Create from reference using the same backend order number
+      const refOrderData = {
+        orderRef: frontendOrderRef, // Your PointBoardA reference
+        orderNumber: backendOrderNumber, // Backend's official number
+        totalAmount: orderData.totalAmount,
+        transactionStatus: 'pending',
+        paymentMethod: orderData.paymentMethod,
+        customerInfo: {
+          fullName: orderData.shippingAddress?.fullName || 'Guest User',
+          phone: orderData.shippingAddress?.phone || '',
+          email: orderData.guestEmail || ''
+        },
+        address: orderData.shippingAddress || {},
+        items: orderData.items || [],
+        notes: `Order created with frontend ref: ${frontendOrderRef}, backend number: ${backendOrderNumber}`
+      };
+      
+      const refResponse = await this.createOrderFromRef(refOrderData);
+      
+      console.log("✅ Reference order created:", refResponse);
+      
+      // Step 4: Return consolidated response
+      return {
+        success: true,
+        data: {
+          mainOrder: orderResponse.data,
+          refOrder: refResponse.data,
+          // Use backend's official order number for consistency
+          orderNumber: backendOrderNumber,
+          frontendOrderRef: frontendOrderRef,
+          // Verify consistency
+          isConsistent: refResponse.data?.orderNumber === backendOrderNumber
+        },
+        message: 'Order created successfully with consistent order numbers',
+        orderRef: backendOrderNumber,
+        paymentStatus: refResponse.data?.paymentStatus,
+        orderStatus: refResponse.data?.orderStatus,
+        orderId: refResponse.data?._id
+      };
       
     } catch (error) {
-      console.error("❌ Test failed:", error);
+      console.error("❌ Error in createOrderWithRefSync:", error);
       throw error;
     }
   }
+
+
 
   // Review API methods
   async getReviews(params = {}) {

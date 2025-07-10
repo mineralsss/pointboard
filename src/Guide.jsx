@@ -7,6 +7,7 @@ import videoThumbnail1 from '/images/video-thumbnail1.png';
 import videoThumbnail2 from '/images/video-thumbnail2.png';
 
 function Guide() {
+
   return (
     <Box sx={{ 
       width: '100%',
@@ -202,7 +203,7 @@ function Guide() {
         </Box>
       </Box>
 
-      {/* Bottom button */}
+
     </Box>
   );
 }

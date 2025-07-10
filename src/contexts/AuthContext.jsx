@@ -88,15 +88,47 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await apiService.login(credentials);
       
+      console.log('🔐 Login response:', {
+        success: response.success,
+        hasData: !!response.data,
+        tokenFields: response.data ? Object.keys(response.data) : [],
+        userFields: response.data?.userData ? Object.keys(response.data.userData) : []
+      });
+      
       if (response.success) {
-        const token = response.data?.accessToken; // Fix: use accessToken
-        const user = response.data?.userData;
+        // Try different possible token field names
+        const token = response.data?.accessToken || 
+                     response.data?.token || 
+                     response.data?.jwt || 
+                     response.data?.authToken;
+        
+        const user = response.data?.userData || 
+                    response.data?.user || 
+                    response.data;
+        
+        console.log('🔐 Token extraction:', {
+          accessToken: response.data?.accessToken,
+          token: response.data?.token,
+          jwt: response.data?.jwt,
+          authToken: response.data?.authToken,
+          selectedToken: token,
+          tokenLength: token?.length
+        });
+        
+        console.log('👤 User extraction:', {
+          userData: response.data?.userData,
+          user: response.data?.user,
+          selectedUser: user
+        });
         
         if (token && user) {
           localStorage.setItem("token", token);
           localStorage.setItem("user", JSON.stringify(user));
           setUser(user);
-          console.log("User data set:", user);
+          console.log("✅ User data set:", user);
+          console.log("✅ Token stored:", token.substring(0, 20) + '...');
+        } else {
+          console.error("❌ Missing token or user data:", { token: !!token, user: !!user });
         }
       } else {
         throw new Error(response.message || "Login failed");

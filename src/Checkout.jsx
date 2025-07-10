@@ -602,50 +602,37 @@ async function checkTransactionStatus(transactionId) {
         notes: `Order placed via ${paymentMethod === 'vietqr' ? 'VietQR' : 'Cash on Delivery'}. Payment status: ${paymentMethod === 'vietqr' && isPaymentVerified ? 'paid' : 'pending'}`
       };
 
-      let response;
-      
-      // Use appropriate endpoint based on authentication status
-      if (isAuthenticated) {
-        response = await apiService.createOrder(orderData);
-      } else {
-        // For guest orders, add email if available from shipping info
+      // Add guest email if not authenticated
+      if (!isAuthenticated) {
         orderData.guestEmail = shippingInfo.email || null;
-        response = await apiService.createGuestOrder(orderData);
       }
 
+      // Use the enhanced order creation with Option 1 fix integration
+      const response = await apiService.createOrderWithRefSync(orderData, orderRef);
+
       if (response.success) {
-        console.log('Order placed successfully!', response.data);
-        console.log('🔍 Order number debugging:', {
+        console.log('✅ Order placed successfully with Option 1 fix!', response.data);
+        console.log('🔍 Enhanced order number debugging:', {
           frontendGenerated: orderRef,
-          backendResponse: response.data,
-          orderNumber: response.data.orderNumber,
-          orderRef: response.data.orderRef,
-          orderId: response.data.orderId,
-          _id: response.data._id
+          backendOrderNumber: response.data.orderNumber,
+          isConsistent: response.data.isConsistent,
+          mainOrder: response.data.mainOrder,
+          refOrder: response.data.refOrder
         });
         
-        // Update order ID with the one from backend to ensure sync
-        let newOrderRef = null;
-        if (response.data.orderNumber) {
-          newOrderRef = response.data.orderNumber;
-          setOrderId(response.data.orderNumber);
-        } else if (response.data.orderRef) {
-          newOrderRef = response.data.orderRef;
-          setOrderId(response.data.orderRef);
-        } else if (response.data.orderId) {
-          newOrderRef = response.data.orderId;
-          setOrderId(response.data.orderId);
-        } else if (response.data._id) {
-          newOrderRef = response.data._id;
-          setOrderId(response.data._id);
-        }
+        // Update order ID with the consistent backend order number
+        const backendOrderNumber = response.data.orderNumber;
+        setOrderId(backendOrderNumber);
         
-        // Log the mismatch for debugging
-        if (newOrderRef && newOrderRef !== orderRef) {
-          console.warn(`OrderRef mismatch detected:
-            Frontend generated: ${orderRef}
-            Backend returned: ${newOrderRef}
-            Using backend orderRef for consistency.`);
+        // Log consistency verification
+        if (response.data.isConsistent) {
+          console.log('✅ Order numbers are consistent across all endpoints');
+        } else {
+          console.warn('⚠️ Order number consistency issue detected:', {
+            frontendRef: orderRef,
+            backendNumber: backendOrderNumber,
+            refOrderNumber: response.data.refOrder?.orderNumber
+          });
         }
         
         // Navigate to success step BEFORE clearing cart
@@ -660,7 +647,7 @@ async function checkTransactionStatus(transactionId) {
         setOrderError(response.message || 'Failed to place order. Please try again.');
       }
     } catch (error) {
-      console.error('Error placing order:', error);
+      console.error('❌ Error placing order:', error);
       
       // Handle specific error cases
       if (error.response?.status === 400) {
