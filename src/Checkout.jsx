@@ -136,15 +136,8 @@ export default function Checkout() {
   const tax = subtotal * 0.1; // 10% tax
   const total = subtotal + shipping + tax;
   
-  // Generate order reference for payment description
-  const orderRef = orderId || `PointBoardA${Date.now().toString().slice(-6)}`;
-  
-  // Set order ID once when component mounts
-  useEffect(() => {
-    if (!orderId) {
-      setOrderId(`PointBoardA${Date.now().toString().slice(-6)}`);
-    }
-  }, [orderId]);
+  // Order reference will be set from backend after order creation
+  const orderRef = orderId;
   
   // Generate VietQR URL with dynamic values
   const generateVietQRUrl = () => {
@@ -170,6 +163,64 @@ export default function Checkout() {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
   
+  // Create order in backend first for VietQR payment
+  const createOrderForPayment = async () => {
+    setIsPlacingOrder(true);
+    setOrderError('');
+
+    try {
+      // Prepare order data for backend
+      const orderData = {
+        items: cartItems.map(item => ({
+          productName: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          productId: item._id || item.id,
+        })),
+        totalAmount: total,
+        paymentMethod: 'bank_transfer', // VietQR maps to bank_transfer
+        shippingAddress: {
+          fullName: `${shippingInfo.firstName} ${shippingInfo.lastName}`.trim(),
+          phone: shippingInfo.phone,
+          address: shippingInfo.address,
+          city: shippingInfo.city,
+          district: shippingInfo.state || 'N/A',
+          ward: shippingInfo.zip,
+          notes: `Country: ${shippingInfo.country || 'Vietnam'}`
+        },
+        notes: `Order created for VietQR payment. Payment status: pending`
+      };
+
+      // Add guest email if not authenticated
+      if (!isAuthenticated) {
+        orderData.guestEmail = shippingInfo.email || null;
+      }
+
+      // Create order in backend first
+      const response = await apiService.createOrder(orderData);
+
+      if (response.success) {
+        console.log('✅ Order created in backend for payment:', response.data);
+        
+        // Set the backend's official order number
+        const backendOrderNumber = response.data?.orderNumber || 
+                                  response.data?.orderRef || 
+                                  response.data?.orderId || 
+                                  response.data?._id;
+        
+        setOrderId(backendOrderNumber);
+        console.log('🎯 Using backend order number for QR payment:', backendOrderNumber);
+      } else {
+        setOrderError(response.message || 'Failed to create order. Please try again.');
+      }
+    } catch (error) {
+      console.error('❌ Error creating order for payment:', error);
+      setOrderError('Failed to create order. Please try again.');
+    } finally {
+      setIsPlacingOrder(false);
+    }
+  };
+
   // Verify payment by checking if transaction exists in MongoDB
   const verifyPayment = async () => {
     setIsCheckingPayment(true);
@@ -269,22 +320,19 @@ async function checkTransactionStatus(transactionId) {
     };
   }, [pollingInterval]);
   
-  // Remove the Verify Payment button and run verification automatically
+  // Create order first when reaching payment step for VietQR
   useEffect(() => {
-    if (activeStep === 2 && paymentMethod === 'vietqr' && !isPaymentVerified && !isCheckingPayment) {
-      verifyPayment();
+    if (activeStep === 2 && paymentMethod === 'vietqr' && !orderId && !isPlacingOrder) {
+      createOrderForPayment();
     }
-    // eslint-disable-next-line
   }, [activeStep, paymentMethod]);
 
-  // Update verification when orderId changes (important for backend sync)
+  // Start payment verification once order is created
   useEffect(() => {
-    if (activeStep === 2 && paymentMethod === 'vietqr' && orderId && orderId !== orderRef && !isPaymentVerified && !isCheckingPayment) {
-      console.log(`OrderRef updated from ${orderRef} to ${orderId}, re-running verification...`);
+    if (activeStep === 2 && paymentMethod === 'vietqr' && orderId && !isPaymentVerified && !isCheckingPayment) {
       verifyPayment();
     }
-    // eslint-disable-next-line
-  }, [orderId]);
+  }, [orderId, activeStep, paymentMethod]);
   
   const renderOrderReview = () => (
     <Grid container spacing={3}>
@@ -497,45 +545,66 @@ async function checkTransactionStatus(transactionId) {
               bgcolor: '#f5f5f5'
             }}
           >
-            <Typography variant="h6" gutterBottom>
-              Scan QR Code to Pay
-            </Typography>
-            <Typography variant="body2" sx={{ mb: 2 }}>
-              Amount: {formatPrice(total)} • Reference: {orderRef}
-            </Typography>
-            <Box sx={{ 
-              maxWidth: 300, 
-              margin: '0 auto', 
-              p: 2, 
-              bgcolor: 'white',
-              borderRadius: 1
-            }}>
-              <img 
-                src={generateVietQRUrl()} 
-                alt="VietQR Payment Code"
-                style={{ width: '100%', height: 'auto' }}
-              />
-            </Box>
-            <Typography variant="body2" sx={{ mt: 2 }}>
-              Please scan this code using your banking app and complete the payment.
-              <br />Your order will be processed once payment is confirmed.
-            </Typography>
-            {/* Progress and result display only */}
-            {isCheckingPayment && (
-              <Box sx={{ mt: 2 }}>
-                <CircularProgress size={24} color="inherit" />
-                <Typography variant="body2" sx={{ mt: 1 }}>Verifying payment...</Typography>
+            {!orderId ? (
+              // Show loading while creating order
+              <Box>
+                <CircularProgress size={40} sx={{ mb: 2 }} />
+                <Typography variant="h6" gutterBottom>
+                  Creating Order...
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  Please wait while we create your order in our system.
+                </Typography>
+                {orderError && (
+                  <Alert severity="error" sx={{ mt: 2 }}>
+                    {orderError}
+                  </Alert>
+                )}
               </Box>
-            )}
-            {isPaymentVerified && (
-              <Alert severity="success" sx={{ mt: 2 }}>
-                Payment verified successfully! You can now complete your order.
-              </Alert>
-            )}
-            {paymentError && (
-              <Alert severity="error" sx={{ mt: 2 }}>
-                {paymentError}
-              </Alert>
+            ) : (
+              // Show QR code once order is created
+              <>
+                <Typography variant="h6" gutterBottom>
+                  Scan QR Code to Pay
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  Amount: {formatPrice(total)} • Order: {orderRef}
+                </Typography>
+                <Box sx={{ 
+                  maxWidth: 300, 
+                  margin: '0 auto', 
+                  p: 2, 
+                  bgcolor: 'white',
+                  borderRadius: 1
+                }}>
+                  <img 
+                    src={generateVietQRUrl()} 
+                    alt="VietQR Payment Code"
+                    style={{ width: '100%', height: 'auto' }}
+                  />
+                </Box>
+                <Typography variant="body2" sx={{ mt: 2 }}>
+                  Please scan this code using your banking app and complete the payment.
+                  <br />Your order will be processed once payment is confirmed.
+                </Typography>
+                {/* Progress and result display only */}
+                {isCheckingPayment && (
+                  <Box sx={{ mt: 2 }}>
+                    <CircularProgress size={24} color="inherit" />
+                    <Typography variant="body2" sx={{ mt: 1 }}>Verifying payment...</Typography>
+                  </Box>
+                )}
+                {isPaymentVerified && (
+                  <Alert severity="success" sx={{ mt: 2 }}>
+                    Payment verified successfully! You can now complete your order.
+                  </Alert>
+                )}
+                {paymentError && (
+                  <Alert severity="error" sx={{ mt: 2 }}>
+                    {paymentError}
+                  </Alert>
+                )}
+              </>
             )}
           </Paper>
         </Grid>
@@ -579,72 +648,65 @@ async function checkTransactionStatus(transactionId) {
     setOrderError('');
 
     try {
-      // Prepare order data according to backend format
-      const orderData = {
-        items: cartItems.map(item => ({
-          productName: item.name,          // Required
-          quantity: item.quantity,         // Required
-          price: item.price,               // Required
-          productId: item._id || item.id,  // Optional
-          // image field removed as backend doesn't expect it
-        })),
-        totalAmount: total,                // Required
-        paymentMethod: paymentMethod === 'vietqr' ? 'bank_transfer' : paymentMethod,  // Map vietqr to bank_transfer
-        shippingAddress: {                 // Optional but we'll include it
-          fullName: `${shippingInfo.firstName} ${shippingInfo.lastName}`.trim(),
-          phone: shippingInfo.phone,
-          address: shippingInfo.address,
-          city: shippingInfo.city,
-          district: shippingInfo.state || 'N/A',  // Using state as district
-          ward: shippingInfo.zip,          // Using zip as ward (optional)
-          notes: `Country: ${shippingInfo.country || 'Vietnam'}`  // Add country info in notes
-        },
-        notes: `Order placed via ${paymentMethod === 'vietqr' ? 'VietQR' : 'Cash on Delivery'}. Payment status: ${paymentMethod === 'vietqr' && isPaymentVerified ? 'paid' : 'pending'}`
-      };
-
-      // Add guest email if not authenticated
-      if (!isAuthenticated) {
-        orderData.guestEmail = shippingInfo.email || null;
-      }
-
-      // Use the enhanced order creation with Option 1 fix integration
-      const response = await apiService.createOrderWithRefSync(orderData, orderRef);
-
-      if (response.success) {
-        console.log('✅ Order placed successfully with Option 1 fix!', response.data);
-        console.log('🔍 Enhanced order number debugging:', {
-          frontendGenerated: orderRef,
-          backendOrderNumber: response.data.orderNumber,
-          isConsistent: response.data.isConsistent,
-          mainOrder: response.data.mainOrder,
-          refOrder: response.data.refOrder
-        });
-        
-        // Update order ID with the consistent backend order number
-        const backendOrderNumber = response.data.orderNumber;
-        setOrderId(backendOrderNumber);
-        
-        // Log consistency verification
-        if (response.data.isConsistent) {
-          console.log('✅ Order numbers are consistent across all endpoints');
+      if (paymentMethod === 'vietqr') {
+        // For VietQR payments, order is already created, just complete the process
+        if (isPaymentVerified) {
+          console.log('✅ VietQR payment verified, completing order:', orderId);
+          
+          // Navigate to success step
+          setActiveStep(activeStep + 1);
+          
+          // Clear the cart after navigating to success page
+          setTimeout(() => {
+            clearCart();
+          }, 100);
         } else {
-          console.warn('⚠️ Order number consistency issue detected:', {
-            frontendRef: orderRef,
-            backendNumber: backendOrderNumber,
-            refOrderNumber: response.data.refOrder?.orderNumber
-          });
+          setOrderError('Please complete the payment before placing your order.');
         }
-        
-        // Navigate to success step BEFORE clearing cart
-        setActiveStep(activeStep + 1);
-        
-        // Clear the cart after navigating to success page
-        // Use setTimeout to ensure state update happens after navigation
-        setTimeout(() => {
-          clearCart();
-        }, 100);
       } else {
-        setOrderError(response.message || 'Failed to place order. Please try again.');
+        // For cash payments, create the order now
+        const orderData = {
+          items: cartItems.map(item => ({
+            productName: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            productId: item._id || item.id,
+          })),
+          totalAmount: total,
+          paymentMethod: paymentMethod,
+          shippingAddress: {
+            fullName: `${shippingInfo.firstName} ${shippingInfo.lastName}`.trim(),
+            phone: shippingInfo.phone,
+            address: shippingInfo.address,
+            city: shippingInfo.city,
+            district: shippingInfo.state || 'N/A',
+            ward: shippingInfo.zip,
+            notes: `Country: ${shippingInfo.country || 'Vietnam'}`
+          },
+          notes: `Order placed via Cash on Delivery. Payment status: pending`
+        };
+
+        // Add guest email if not authenticated
+        if (!isAuthenticated) {
+          orderData.guestEmail = shippingInfo.email || null;
+        }
+
+        // Create order for cash payment
+        const response = await apiService.createOrder(orderData);
+
+        if (response.success) {
+          console.log('✅ Cash order placed successfully:', response.data);
+          
+          // Navigate to success step
+          setActiveStep(activeStep + 1);
+          
+          // Clear the cart after navigating to success page
+          setTimeout(() => {
+            clearCart();
+          }, 100);
+        } else {
+          setOrderError(response.message || 'Failed to place order. Please try again.');
+        }
       }
     } catch (error) {
       console.error('❌ Error placing order:', error);
@@ -738,6 +800,7 @@ async function checkTransactionStatus(transactionId) {
                 disabled={
                   isPlacingOrder || 
                   (paymentMethod === 'vietqr' && !isPaymentVerified) ||
+                  (paymentMethod === 'vietqr' && !orderId) ||
                   (!isAuthenticated && !shippingInfo.email)
                 }
                 startIcon={isPlacingOrder ? <CircularProgress size={20} /> : null}
