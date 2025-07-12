@@ -151,7 +151,7 @@ export default function Checkout() {
     const encodedDescription = encodeURIComponent(description);
     
     // Create the full QR URL
-    return `https://qr.sepay.vn/img?acc=119771978&bank=mbbank&amount=${amount}&des=${encodedDescription}`;
+    return `https://qr.sepay.vn/img?acc=96247BCCZ3&bank=bidv&amount=${amount}&des=${encodedDescription}`;
   };
   
   function formatPrice(price) {
