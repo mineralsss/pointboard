@@ -64,6 +64,7 @@ export default function Checkout() {
   const [pollingInterval, setPollingInterval] = useState(null);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [orderError, setOrderError] = useState('');
+  const [orderDetails, setOrderDetails] = useState(null);
 
   // Pre-fill shipping info with user data if authenticated
   useEffect(() => {
@@ -79,7 +80,7 @@ export default function Checkout() {
   }, [isAuthenticated, user]);
 
   // Early return after all hooks have been called - but only if not on success page
-  if (cartItems.length === 0 && activeStep < 3) {
+  if (cartItems.length === 0 && activeStep < steps.length) {
     return (
       <Base>
         <Container maxWidth="lg" sx={{ mb: 8, textAlign: 'center', mt: 8 }}>
@@ -653,13 +654,17 @@ async function checkTransactionStatus(transactionId) {
         if (isPaymentVerified) {
           console.log('✅ VietQR payment verified, completing order:', orderId);
           
+          // Store order details for success page
+          setOrderDetails({
+            subtotal,
+            shipping,
+            tax,
+            total,
+            itemCount: cartItems.reduce((sum, item) => sum + item.quantity, 0)
+          });
+          
           // Navigate to success step
           setActiveStep(activeStep + 1);
-          
-          // Clear the cart after navigating to success page
-          setTimeout(() => {
-            clearCart();
-          }, 100);
         } else {
           setOrderError('Please complete the payment before placing your order.');
         }
@@ -697,13 +702,17 @@ async function checkTransactionStatus(transactionId) {
         if (response.success) {
           console.log('✅ Cash order placed successfully:', response.data);
           
+          // Store order details for success page
+          setOrderDetails({
+            subtotal,
+            shipping,
+            tax,
+            total,
+            itemCount: cartItems.reduce((sum, item) => sum + item.quantity, 0)
+          });
+          
           // Navigate to success step
           setActiveStep(activeStep + 1);
-          
-          // Clear the cart after navigating to success page
-          setTimeout(() => {
-            clearCart();
-          }, 100);
         } else {
           setOrderError(response.message || 'Failed to place order. Please try again.');
         }
@@ -751,13 +760,16 @@ async function checkTransactionStatus(transactionId) {
             and will notify you when your order has shipped.
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Order Total: {formatPrice(total)}
+            Order Total: {formatPrice(orderDetails?.total || 0)}
           </Typography>
           <Button 
             variant="contained" 
             color="primary" 
             sx={{ mt: 2, mr: 2 }}
-            onClick={() => navigate('/mainmenu')}
+            onClick={() => {
+              clearCart();
+              navigate('/mainmenu');
+            }}
           >
             Continue Shopping
           </Button>
@@ -765,7 +777,10 @@ async function checkTransactionStatus(transactionId) {
             variant="outlined" 
             color="primary" 
             sx={{ mt: 2 }}
-            onClick={() => navigate('/')}
+            onClick={() => {
+              clearCart();
+              navigate('/');
+            }}
           >
             Return to Home
           </Button>
@@ -828,22 +843,22 @@ async function checkTransactionStatus(transactionId) {
             Order Summary
           </Typography>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-            <Typography>Items ({cartItems.reduce((sum, item) => sum + item.quantity, 0)})</Typography>
-            <Typography>{formatPrice(subtotal)}</Typography>
+            <Typography>Items ({activeStep === steps.length ? (orderDetails?.itemCount || 0) : cartItems.reduce((sum, item) => sum + item.quantity, 0)})</Typography>
+            <Typography>{formatPrice(activeStep === steps.length ? (orderDetails?.subtotal || 0) : subtotal)}</Typography>
           </Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
             <Typography>Shipping</Typography>
-            <Typography>{formatPrice(shipping)}</Typography>
+            <Typography>{formatPrice(activeStep === steps.length ? (orderDetails?.shipping || 0) : shipping)}</Typography>
           </Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
             <Typography>Tax</Typography>
-            <Typography>{formatPrice(tax)}</Typography>
+            <Typography>{formatPrice(activeStep === steps.length ? (orderDetails?.tax || 0) : tax)}</Typography>
           </Box>
           <Divider sx={{ my: 1.5 }} />
           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
             <Typography variant="h6">Total</Typography>
             <Typography variant="h6" color="primary">
-              {formatPrice(total)}
+              {formatPrice(activeStep === steps.length ? (orderDetails?.total || 0) : total)}
             </Typography>
           </Box>
         </CardContent>
