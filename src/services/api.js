@@ -623,6 +623,22 @@ class ApiService {
       throw error;
     }
   }
+
+  // Cleanup expired orders
+  async cleanupExpiredOrders() {
+    try {
+      const response = await this.axios.post('/orders/cleanup-expired');
+      return response.data;
+    } catch (error) {
+      console.error('cleanupExpiredOrders error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
+  }
 }
 
 export default new ApiService();

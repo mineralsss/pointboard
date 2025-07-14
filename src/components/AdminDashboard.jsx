@@ -748,6 +748,29 @@ const AdminDashboard = () => {
     loadOrders(newPage);
   };
 
+  const handleCleanupExpiredOrders = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      setSuccessMessage('');
+      
+      const response = await apiService.cleanupExpiredOrders();
+      
+      if (response.success) {
+        setSuccessMessage(`Successfully cleaned up ${response.cleanedCount || 0} expired orders`);
+        // Reload orders to reflect the changes
+        await loadOrders(orderPage);
+      } else {
+        setError(response.message || 'Failed to cleanup expired orders');
+      }
+    } catch (error) {
+      console.error('Error cleaning up expired orders:', error);
+      setError('Error cleaning up expired orders: ' + (error.message || 'Please try again'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Search handlers
   const handleOrderSearch = (searchTerm) => {
     setOrderSearchTerm(searchTerm);
@@ -1234,7 +1257,30 @@ const AdminDashboard = () => {
             Clear Search
           </Button>
         )}
+        
+        <Button
+          startIcon={<Delete />}
+          onClick={handleCleanupExpiredOrders}
+          variant="contained"
+          size="small"
+          color="warning"
+          sx={{ ml: 'auto' }}
+        >
+          Cleanup Expired Orders
+        </Button>
       </Box>
+
+      {/* Error and Success Messages */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+      {successMessage && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {successMessage}
+        </Alert>
+      )}
 
       {/* Orders Table */}
       <TableContainer component={Paper} sx={{ mb: 2 }}>
