@@ -95,6 +95,7 @@ const AdminDashboard = () => {
   const [totalOrderCount, setTotalOrderCount] = useState(0);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalPendingOrders, setTotalPendingOrders] = useState(0);
+  const [totalReviews, setTotalReviews] = useState(0);
   const [chartData, setChartData] = useState({
     orderStatus: {},
     paymentStatus: {},
@@ -340,8 +341,10 @@ const AdminDashboard = () => {
           };
         });
         setReviews(enhancedReviews);
+        setTotalReviews(enhancedReviews.length);
       } else {
         setReviews([]);
+        setTotalReviews(0);
       }
     } catch (error) {
       setReviews([]);
@@ -981,6 +984,24 @@ const AdminDashboard = () => {
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Pending Orders
+                </Typography>
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
+      </Grid>
+      
+      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Card>
+          <CardContent>
+            <Box display="flex" alignItems="center">
+              <BarChart sx={{ fontSize: 40, color: '#9C27B0', mr: 2 }} />
+              <Box>
+                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                  {totalReviews}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Total Reviews
                 </Typography>
               </Box>
             </Box>
