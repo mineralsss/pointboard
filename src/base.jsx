@@ -357,7 +357,7 @@ function Base({ children }) {
                 }}
                 className="jersey-font"
               >
-                PointBoardGame.com
+                PointBoardGame
               </Typography>
 
               {/* Mobile menu icon */}
