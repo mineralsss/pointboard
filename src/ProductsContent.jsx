@@ -768,178 +768,173 @@ function ProductsContent() {
               {/* Vertical Divider */}
               <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', md: 'block' }, mx: 0 }} />
               {/* Review Area */}
-              <Box sx={{ flexGrow: 1, minWidth: 0, p: { xs: 0, md: 0 }, display: 'flex', flexDirection: 'column', height: '100%' }}>
-                <Box sx={{
-                  backgroundColor: 'rgba(255,255,255,0.04)',
-                  borderRadius: 3,
-                  border: '1px solid rgba(255,255,255,0.10)',
-                  boxShadow: '0 2px 12px 0 rgba(0,0,0,0.10)',
-                  p: { xs: 2, md: 3 },
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                }}>
-                  {/* Section Indicator */}
-                  <Typography variant="overline" sx={{ color: '#FFD700', fontWeight: 'bold', letterSpacing: 1, mb: 1, fontSize: '1.1rem', display: 'block', textAlign: 'left' }}>
-                    Viết đánh giá
-                  </Typography>
-                  {/* Reviews Header and Average Rating */}
-                  <Typography variant="h6" sx={{ color: 'white', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <StarIcon sx={{ color: '#FFD700' }} />
-                    Đánh giá ({modalReviews.length})
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
-                      {renderStars(modalRating)}
-                    </Box>
-                    <Typography variant="h6" sx={{ color: '#FFD700', fontWeight: 'bold' }}>
-                      {modalRating}/5
-                    </Typography>
+              <Box sx={{
+                flexGrow: 1,
+                minWidth: 0,
+                p: { xs: 0, md: 0 },
+                backgroundColor: 'rgba(255,255,255,0.04)',
+                borderRadius: 3,
+                border: '1px solid rgba(255,255,255,0.10)',
+                boxShadow: '0 2px 12px 0 rgba(0,0,0,0.10)',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                flex: 1,
+                minHeight: 0,
+                overflowY: 'auto',
+                ml: { md: 2 }, // Add left margin for desktop
+                mt: { xs: 2, md: 0 } // Add top margin for mobile
+              }}>
+                {/* Section Indicator */}
+                <Typography variant="overline" sx={{ color: '#FFD700', fontWeight: 'bold', letterSpacing: 1, mb: 1, fontSize: '1.1rem', display: 'block', textAlign: 'left', mt: 2, pl: 2 }}>
+                  Viết đánh giá
+                </Typography>
+                {/* Reviews Header and Average Rating */}
+                <Typography variant="h6" sx={{ color: 'white', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <StarIcon sx={{ color: '#FFD700' }} />
+                  Đánh giá ({modalReviews.length})
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, pl: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
+                    {renderStars(modalRating)}
                   </Box>
-                  {/* Review Input Area */}
-                  <Box sx={{ mb: 2, p: 2, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, border: '1px solid rgba(255,255,255,0.10)' }}>
-                    <Typography variant="subtitle1" sx={{ color: 'white', mb: 1, fontWeight: 'bold' }}>
-                      Viết đánh giá của bạn
-                    </Typography>
-                    <Rating
-                      name="new-review-rating"
-                      value={newReviewRating}
-                      onChange={(event, newValue) => setNewReviewRating(newValue)}
-                      precision={1}
-                      size="large"
-                      sx={{ mb: 1, color: '#FFD700',
-                        '& .MuiRating-iconEmpty': {
-                          color: '#bbb',
-                          filter: 'drop-shadow(0 0 2px #222)'
-                        },
-                        '& .MuiRating-iconHover': {
-                          color: '#FFD700',
-                          transform: 'scale(1.15)'
-                        }
-                      }}
-                      icon={<StarIcon fontSize="inherit" />}
-                      emptyIcon={<StarIcon fontSize="inherit" />}
-                    />
-                    <TextField
-                      value={newReviewComment}
-                      onChange={e => setNewReviewComment(e.target.value)}
-                      multiline
-                      minRows={2}
-                      maxRows={4}
-                      fullWidth
-                      variant="filled"
-                      color="warning"
-                      placeholder="Nhập nhận xét của bạn..."
-                      sx={{
-                        mb: 2,
-                        background: 'rgba(255,255,255,0.03)',
-                        borderRadius: 1,
-                        input: { color: 'white' },
-                        textarea: { color: 'white' },
-                        label: { color: 'rgba(255,255,255,0.7)' }
-                      }}
-                      aria-label="Nhập nhận xét của bạn"
-                    />
-                    <Button
-                      variant="contained"
-                      sx={{ background: '#FFD700', color: '#491E6C', fontWeight: 'bold', px: 4, py: 1, fontSize: 16 }}
-                      disabled={!newReviewRating || !newReviewComment.trim() || submittingReview}
-                      onClick={() => {
-                        handleAddReview();
-                        setTimeout(() => {
-                          const reviewList = document.getElementById('review-list');
-                          if (reviewList) reviewList.scrollTop = 0;
-                        }, 600);
-                      }}
-                      aria-label="Gửi đánh giá"
-                    >
-                      {submittingReview ? 'Đang gửi...' : 'Gửi đánh giá'}
-                    </Button>
+                  <Typography variant="h6" sx={{ color: '#FFD700', fontWeight: 'bold' }}>
+                    {modalRating}/5
+                  </Typography>
+                </Box>
+                {/* Review Input Area - unified in the same box as reviews list */}
+                <Typography variant="subtitle1" sx={{ color: 'white', mb: 1, fontWeight: 'bold', pl: 2 }}>
+                  Viết đánh giá của bạn
+                </Typography>
+                <Rating
+                  name="new-review-rating"
+                  value={newReviewRating}
+                  onChange={(event, newValue) => setNewReviewRating(newValue)}
+                  precision={1}
+                  size="large"
+                  sx={{ mb: 1, color: '#FFD700', pl: 2,
+                    '& .MuiRating-iconEmpty': {
+                      color: '#bbb',
+                      filter: 'drop-shadow(0 0 2px #222)'
+                    },
+                    '& .MuiRating-iconHover': {
+                      color: '#FFD700',
+                      transform: 'scale(1.15)'
+                    }
+                  }}
+                  icon={<StarIcon fontSize="inherit" />}
+                  emptyIcon={<StarIcon fontSize="inherit" />}
+                />
+                <TextField
+                  value={newReviewComment}
+                  onChange={e => setNewReviewComment(e.target.value)}
+                  multiline
+                  minRows={2}
+                  maxRows={4}
+                  fullWidth
+                  variant="filled"
+                  color="warning"
+                  placeholder="Nhập nhận xét của bạn..."
+                  sx={{
+                    mb: 2,
+                    background: 'rgba(255,255,255,0.03)',
+                    borderRadius: 1,
+                    input: { color: 'white' },
+                    textarea: { color: 'white' },
+                    label: { color: 'rgba(255,255,255,0.7)' }
+                  }}
+                  aria-label="Nhập nhận xét của bạn"
+                />
+                <Button
+                  variant="contained"
+                  sx={{ background: '#FFD700', color: '#491E6C', fontWeight: 'bold', px: 4, py: 1, fontSize: 16, mb: 3 }}
+                  disabled={!newReviewRating || !newReviewComment.trim() || submittingReview}
+                  onClick={() => {
+                    handleAddReview();
+                    setTimeout(() => {
+                      const reviewList = document.getElementById('review-list');
+                      if (reviewList) reviewList.scrollTop = 0;
+                    }, 600);
+                  }}
+                  aria-label="Gửi đánh giá"
+                >
+                  {submittingReview ? 'Đang gửi...' : 'Gửi đánh giá'}
+                </Button>
+                {/* Reviews List - unified in the same box as the form */}
+                {reviewsLoading ? (
+                  <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.7)' }}>
+                    Đang tải đánh giá...
                   </Box>
-                  {/* Reviews List */}
-                  {reviewsLoading ? (
-                    <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.7)' }}>
-                      Đang tải đánh giá...
-                    </Box>
-                  ) : modalReviews.length > 0 ? (
-                    <Box
-                      sx={{
-                        flexGrow: 1,
-                        minHeight: 0,
-                        overflowY: 'auto',
-                        pr: 1,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 4,
-                      }}
-                      id="review-list"
-                    >
-                      {modalReviews.map((review) => {
-                        // Defensive: handle user as object or string
-                        let userDisplay = '';
-                        if (typeof review.user === 'object' && review.user !== null) {
-                          userDisplay = review.user.firstName || review.user.lastName
-                            ? `${review.user.firstName || ''} ${review.user.lastName || ''}`.trim()
-                            : review.user.email || review.user.id || review.user._id || 'Người dùng';
-                        } else if (typeof review.user === 'string') {
-                          userDisplay = review.user;
-                        } else {
-                          userDisplay = 'Người dùng';
-                        }
-                        return (
-                          <Box 
-                            key={review._id || review.id}
-                            sx={{ 
-                              px: 4, py: 4, 
-                              backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                              borderRadius: '14px',
-                              border: '1px solid rgba(255, 255, 255, 0.1)',
-                              fontSize: '1.1rem',
-                              minHeight: 120,
-                              display: 'flex',
-                              flexDirection: 'column',
-                              justifyContent: 'center'
-                            }}
-                          >
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                              <Typography variant="subtitle2" sx={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                                {userDisplay}
-                              </Typography>
-                              <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '1.05rem' }}>
-                                {formatDate(review.date || review.createdAt)}
-                              </Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                              {renderStars(review.rating)}
-                            </Box>
-                            <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.97)', fontSize: '1.25rem', lineHeight: 1.7 }}>
-                              {review.comment}
+                ) : modalReviews.length > 0 ? (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4,
+                    }}
+                    id="review-list"
+                  >
+                    {modalReviews.map((review) => {
+                      // Defensive: handle user as object or string
+                      let userDisplay = '';
+                      if (typeof review.user === 'object' && review.user !== null) {
+                        userDisplay = review.user.firstName || review.user.lastName
+                          ? `${review.user.firstName || ''} ${review.user.lastName || ''}`.trim()
+                          : review.user.email || review.user.id || review.user._id || 'Người dùng';
+                      } else if (typeof review.user === 'string') {
+                        userDisplay = review.user;
+                      } else {
+                        userDisplay = 'Người dùng';
+                      }
+                      return (
+                        <Box 
+                          key={review._id || review.id}
+                          sx={{ 
+                            px: 4, py: 4, 
+                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                            borderRadius: '14px',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            fontSize: '1.1rem',
+                            minHeight: 120,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                            <Typography variant="subtitle2" sx={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                              {userDisplay}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '1.05rem' }}>
+                              {formatDate(review.date || review.createdAt)}
                             </Typography>
                           </Box>
-                        );
-                      })}
-                    </Box>
-                  ) : (
-                    <Typography
-                      sx={{
-                        flexGrow: 1,
-                        minHeight: 0,
-                        overflowY: 'auto',
-                        pr: 1,
-                        color: 'rgba(255,255,255,0.7)',
-                        textAlign: 'center',
-                        mt: 4,
-                        fontSize: '1.1rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                      id="review-list"
-                    >
-                      Chưa có đánh giá nào
-                    </Typography>
-                  )}
-                </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                            {renderStars(review.rating)}
+                          </Box>
+                          <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.97)', fontSize: '1.25rem', lineHeight: 1.7 }}>
+                            {review.comment}
+                          </Typography>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                ) : (
+                  <Typography
+                    sx={{
+                      color: 'rgba(255,255,255,0.7)',
+                      textAlign: 'center',
+                      mt: 4,
+                      fontSize: '1.1rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                    id="review-list"
+                  >
+                    Chưa có đánh giá nào
+                  </Typography>
+                )}
               </Box>
             </Box>
           </Box>
