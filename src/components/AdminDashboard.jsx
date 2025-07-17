@@ -356,6 +356,64 @@ const AdminDashboard = () => {
     const payments = analyticsData.payments || {};
     const revenue = analyticsData.revenue || {};
     
+    // Generate last 7 days labels and initialize daily data
+    const days = [];
+    const dailyRevenue = Array(7).fill(0);
+    const dailyOrders = Array(7).fill(0);
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      days.push(d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+    }
+
+    // Aggregate orders and revenue by day for the last 7 days
+    if (Array.isArray(analyticsData.allOrders)) {
+      analyticsData.allOrders.forEach(order => {
+        if (!order.createdAt) return;
+        const orderDate = new Date(order.createdAt);
+        // Find the index in the last 7 days
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(today);
+          d.setDate(today.getDate() - (6 - i));
+          if (
+            orderDate.getFullYear() === d.getFullYear() &&
+            orderDate.getMonth() === d.getMonth() &&
+            orderDate.getDate() === d.getDate()
+          ) {
+            dailyRevenue[i] += order.total || order.totalAmount || 0;
+            dailyOrders[i] += 1;
+            break;
+          }
+        }
+      });
+    }
+
+    // Revenue Trend Chart (last 7 days)
+    const revenueTrendData = {
+      labels: days,
+      datasets: [{
+        label: 'Revenue',
+        data: dailyRevenue,
+        borderColor: '#4CAF50',
+        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+        fill: true,
+        tension: 0.4
+      }]
+    };
+
+    // Orders Over Time Chart (last 7 days)
+    const ordersOverTimeData = {
+      labels: days,
+      datasets: [{
+        label: 'Orders',
+        data: dailyOrders.map(v => Math.round(v)), // Ensure integer values
+        backgroundColor: '#2196F3',
+        borderColor: '#1976D2',
+        borderWidth: 2
+      }]
+    };
+    
     // Order Status Distribution Chart
     const orderStatusData = {
       labels: ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'],
@@ -402,31 +460,6 @@ const AdminDashboard = () => {
       }]
     };
     
-    // Revenue Trend Chart (mock data for now)
-    const revenueTrendData = {
-      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-      datasets: [{
-        label: 'Revenue',
-        data: [0, 0, 0, 0, 0, revenue.total || 0],
-        borderColor: '#4CAF50',
-        backgroundColor: 'rgba(76, 175, 80, 0.1)',
-        fill: true,
-        tension: 0.4
-      }]
-    };
-    
-    // Orders Over Time Chart (mock data for now)
-    const ordersOverTimeData = {
-      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-      datasets: [{
-        label: 'Orders',
-        data: [0, 0, 0, 0, 0, orders.total || 0],
-        backgroundColor: '#2196F3',
-        borderColor: '#1976D2',
-        borderWidth: 2
-      }]
-    };
-    
     setChartData({
       orderStatus: orderStatusData,
       paymentStatus: paymentStatusData,
@@ -438,17 +471,21 @@ const AdminDashboard = () => {
   const loadAnalytics = async () => {
     try {
       const response = await apiService.getAnalytics();
+      let allOrders = [];
       if (response.success && response.data) {
         // Use the correct data structure from the analytics response
         const summary = response.data.summary || {};
         const orders = response.data.orders || {};
-        
         setTotalRevenue(summary.totalRevenue || 0);
         setTotalPendingOrders(summary.pendingOrders || orders.pending || 0);
         setTotalOrderCount(summary.totalOrders || orders.total || 0);
-        
-        // Prepare chart data
-        prepareChartData(response.data);
+        // Fetch all orders for daily aggregation
+        const allOrdersResp = await apiService.getAllOrders(1, 1000, 'createdAt', 'desc');
+        if (allOrdersResp.success && allOrdersResp.data?.results) {
+          allOrders = allOrdersResp.data.results;
+        }
+        // Prepare chart data with allOrders
+        prepareChartData({ ...response.data, allOrders });
       } else {
         // If analytics API failed, try fallback method
         console.log('Analytics API failed, trying fallback method...');
@@ -1162,6 +1199,7 @@ const AdminDashboard = () => {
                     scales: {
                       y: {
                         beginAtZero: true,
+                        max: 6000000, // Set max to 6 million
                         ticks: {
                           callback: function(value) {
                             return formatPrice(value);
@@ -1202,7 +1240,16 @@ const AdminDashboard = () => {
                     },
                     scales: {
                       y: {
-                        beginAtZero: true
+                        beginAtZero: true,
+                        ticks: {
+                          stepSize: 1,
+                          callback: function(value) {
+                            if (Number.isInteger(value)) {
+                              return value;
+                            }
+                            return null;
+                          }
+                        }
                       }
                     }
                   }}
