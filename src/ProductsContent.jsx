@@ -85,8 +85,8 @@ function ProductsContent() {
         // Fetch reviews for each product and add avgRating/reviewCount
         const productsWithReviews = await Promise.all(productsArr.map(async (product) => {
           try {
-            const reviewsRes = await apiService.getReviews({ product: product._id });
-            const reviews = reviewsRes.data || [];
+            const reviewsRes = await apiService.getReviews({ products: product._id });
+            const reviews = reviewsRes.reviews || [];
             const reviewCount = reviews.length;
             const avgRating = reviewCount > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviewCount) : 0;
             return { ...product, avgRating, reviewCount };
@@ -110,8 +110,9 @@ function ProductsContent() {
       if (!selectedProduct) return;
       setReviewsLoading(true);
       try {
-        const reviewsRes1 = await apiService.getReviews({ product: selectedProduct._id });
-        const productReviews = reviewsRes1.data || [];
+        const reviewsRes1 = await apiService.getReviews({ products: selectedProduct._id });
+        console.log('Fetched reviewsRes1:', reviewsRes1);
+        const productReviews = reviewsRes1.reviews || [];
         setModalReviews(productReviews);
         if (productReviews.length > 0) {
           const avg = (productReviews.reduce((acc, r) => acc + r.rating, 0) / productReviews.length).toFixed(1) * 1;
@@ -274,15 +275,17 @@ function ProductsContent() {
     setSubmittingReview(true);
     try {
       // Submit review with user ObjectId
-      await apiService.createReview({
-        product: selectedProduct._id,
+      const reviewBody = {
+        productId: selectedProduct._id,
         user: user._id, // Use database user
         rating: newReviewRating,
         comment: newReviewComment
-      });
+      };
+      console.log('Submitting review:', reviewBody);
+      await apiService.createReview(reviewBody);
       // Refresh reviews
-      const reviewsRes2 = await apiService.getReviews({ product: selectedProduct._id });
-      const productReviews = reviewsRes2.data || [];
+      const reviewsRes2 = await apiService.getReviews({ products: selectedProduct._id });
+      const productReviews = reviewsRes2.reviews || [];
       setModalReviews(productReviews);
       if (productReviews.length > 0) {
         const avg = (productReviews.reduce((acc, r) => acc + r.rating, 0) / productReviews.length).toFixed(1) * 1;
@@ -771,7 +774,7 @@ function ProductsContent() {
               <Box sx={{
                 flexGrow: 1,
                 minWidth: 0,
-                p: { xs: 0, md: 0 },
+                p: { xs: 2, md: 2 },
                 backgroundColor: 'rgba(255,255,255,0.04)',
                 borderRadius: 3,
                 border: '1px solid rgba(255,255,255,0.10)',
@@ -786,7 +789,7 @@ function ProductsContent() {
                 mt: { xs: 2, md: 0 } // Add top margin for mobile
               }}>
                 {/* Section Indicator */}
-                <Typography variant="overline" sx={{ color: '#FFD700', fontWeight: 'bold', letterSpacing: 1, mb: 1, fontSize: '1.1rem', display: 'block', textAlign: 'left', mt: 2, pl: 2 }}>
+                <Typography variant="overline" sx={{ color: '#FFD700', fontWeight: 'bold', letterSpacing: 1, mb: 1, fontSize: '1.1rem', display: 'block', textAlign: 'left', mt: 2 }}>
                   Viết đánh giá
                 </Typography>
                 {/* Reviews Header and Average Rating */}
@@ -794,7 +797,7 @@ function ProductsContent() {
                   <StarIcon sx={{ color: '#FFD700' }} />
                   Đánh giá ({modalReviews.length})
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, pl: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
                     {renderStars(modalRating)}
                   </Box>
@@ -803,7 +806,7 @@ function ProductsContent() {
                   </Typography>
                 </Box>
                 {/* Review Input Area - unified in the same box as reviews list */}
-                <Typography variant="subtitle1" sx={{ color: 'white', mb: 1, fontWeight: 'bold', pl: 2 }}>
+                <Typography variant="subtitle1" sx={{ color: 'white', mb: 1, fontWeight: 'bold' }}>
                   Viết đánh giá của bạn
                 </Typography>
                 <Rating
@@ -812,7 +815,7 @@ function ProductsContent() {
                   onChange={(event, newValue) => setNewReviewRating(newValue)}
                   precision={1}
                   size="large"
-                  sx={{ mb: 1, color: '#FFD700', pl: 2,
+                  sx={{ mb: 1, color: '#FFD700',
                     '& .MuiRating-iconEmpty': {
                       color: '#bbb',
                       filter: 'drop-shadow(0 0 2px #222)'
@@ -861,6 +864,7 @@ function ProductsContent() {
                   {submittingReview ? 'Đang gửi...' : 'Gửi đánh giá'}
                 </Button>
                 {/* Reviews List - unified in the same box as the form */}
+                {console.log('Rendering modalReviews:', modalReviews)}
                 {reviewsLoading ? (
                   <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.7)' }}>
                     Đang tải đánh giá...

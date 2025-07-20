@@ -357,21 +357,38 @@ class ApiService {
         data: error.response?.data,
         message: error.message
       });
-      // Return a fallback response instead of throwing
+      // Return a proper error response instead of undefined
+      return {
+        success: false,
+        message: "Failed to fetch analytics data",
+        error: error.message
+      };
     }
   }
 
   // Fallback method to calculate analytics from all orders
   async getAnalyticsFromOrders() {
     try {
+      console.log("🔄 Using fallback analytics method - calculating from orders...");
+      
       // Get all orders with a large limit to get all orders
       const response = await this.axios.get("/orders/all?page=1&limit=1000&sortBy=createdAt&sortOrder=desc");
+      
       if (response.data.success && response.data.data?.results) {
         const orders = response.data.data.results;
-        const totalRevenue = orders.reduce((sum, order) => sum + (order.total || order.totalAmount || 0), 0);
-        const pendingOrders = orders.filter(order => (order.status || order.orderStatus) === 'pending').length;
+        console.log(`📊 Processing ${orders.length} orders for analytics...`);
         
-        return {
+        const totalRevenue = orders.reduce((sum, order) => {
+          const orderTotal = order.total || order.totalAmount || 0;
+          return sum + orderTotal;
+        }, 0);
+        
+        const pendingOrders = orders.filter(order => {
+          const status = order.status || order.orderStatus;
+          return status === 'pending';
+        }).length;
+        
+        const result = {
           success: true,
           data: {
             totalRevenue,
@@ -379,7 +396,12 @@ class ApiService {
             totalOrders: orders.length
           }
         };
+        
+        console.log("✅ Fallback analytics calculated:", result.data);
+        return result;
       }
+      
+      console.warn("⚠️ No orders data available for fallback analytics");
       return {
         success: false,
         message: "Could not fetch orders for analytics",
@@ -390,10 +412,11 @@ class ApiService {
         }
       };
     } catch (error) {
-      console.error("getAnalyticsFromOrders error:", error);
+      console.error("❌ getAnalyticsFromOrders error:", error);
       return {
         success: false,
         message: "Failed to calculate analytics from orders",
+        error: error.message,
         data: {
           totalRevenue: 0,
           pendingOrders: 0,
@@ -562,9 +585,45 @@ class ApiService {
   async getReviews(params = {}) {
     // params: { product, order, user, ... }
     try {
-      const response = await this.axios.get('/reviews', { params });
+      console.log('getReviews called with params:', params);
+      // Use the public endpoint for product reviews
+      const publicAxios = axios.create({
+        baseURL: '/api',
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      
+      // Add auth token if available
+      const token = localStorage.getItem("token");
+      if (token) {
+        publicAxios.defaults.headers.Authorization = `Bearer ${token}`;
+      }
+      
+      const url = '/reviews?' + new URLSearchParams(params).toString();
+      console.log('Making request to:', url);
+      const response = await publicAxios.get('/reviews', { params });
+      console.log('getReviews response:', response.data);
+      
+      // Normalize the response format for admin dashboard compatibility
+      // Backend returns { success: true, reviews: [...] }
+      // Admin dashboard expects { success: true, data: [...] }
+      if (response.data && response.data.success && response.data.reviews) {
+        return {
+          ...response.data,
+          data: response.data.reviews // Map reviews to data for admin dashboard
+        };
+      }
+      
       return response.data;
     } catch (error) {
+      console.error('getReviews error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message,
+        url: error.config?.url
+      });
       throw error;
     }
   }
@@ -580,27 +639,102 @@ class ApiService {
 
   async createReview(reviewData) {
     try {
+      console.log('createReview called with data:', reviewData);
       const response = await this.axios.post('/reviews', reviewData);
+      console.log('createReview response:', response.data);
       return response.data;
     } catch (error) {
+      console.error('createReview error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message,
+        url: error.config?.url
+      });
       throw error;
     }
   }
 
   async updateReview(id, reviewData) {
     try {
-      const response = await this.axios.patch(`/reviews/${id}`, reviewData);
-      return response.data;
+      console.log('updateReview called with id:', id, 'data:', reviewData);
+      
+      // Try the public endpoint first
+      try {
+        const publicAxios = axios.create({
+          baseURL: '/api',
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        
+        // Add auth token if available
+        const token = localStorage.getItem("token");
+        if (token) {
+          publicAxios.defaults.headers.Authorization = `Bearer ${token}`;
+        }
+        
+        const response = await publicAxios.patch(`/reviews/${id}`, reviewData);
+        console.log('updateReview response from public API:', response.data);
+        return response.data;
+      } catch (publicError) {
+        console.log('Public API update failed, trying authenticated API:', publicError.message);
+        
+        // Fallback to authenticated API
+        const response = await this.axios.patch(`/reviews/${id}`, reviewData);
+        console.log('updateReview response from authenticated API:', response.data);
+        return response.data;
+      }
     } catch (error) {
+      console.error('updateReview error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message,
+        url: error.config?.url
+      });
       throw error;
     }
   }
 
   async deleteReview(id) {
     try {
-      const response = await this.axios.delete(`/reviews/${id}`);
-      return response.data;
+      console.log('deleteReview called with id:', id);
+      
+      // Try the public endpoint first
+      try {
+        const publicAxios = axios.create({
+          baseURL: '/api',
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        
+        // Add auth token if available
+        const token = localStorage.getItem("token");
+        if (token) {
+          publicAxios.defaults.headers.Authorization = `Bearer ${token}`;
+        }
+        
+        const response = await publicAxios.delete(`/reviews/${id}`);
+        console.log('deleteReview response from public API:', response.data);
+        return response.data;
+      } catch (publicError) {
+        console.log('Public API delete failed, trying authenticated API:', publicError.message);
+        
+        // Fallback to authenticated API
+        const response = await this.axios.delete(`/reviews/${id}`);
+        console.log('deleteReview response from authenticated API:', response.data);
+        return response.data;
+      }
     } catch (error) {
+      console.error('deleteReview error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message,
+        url: error.config?.url
+      });
       throw error;
     }
   }

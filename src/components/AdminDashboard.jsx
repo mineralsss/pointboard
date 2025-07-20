@@ -352,9 +352,7 @@ const AdminDashboard = () => {
   };
 
   const prepareChartData = (analyticsData) => {
-    const orders = analyticsData.orders || {};
-    const payments = analyticsData.payments || {};
-    const revenue = analyticsData.revenue || {};
+    console.log('📊 Preparing chart data with:', analyticsData);
     
     // Generate last 7 days labels and initialize daily data
     const days = [];
@@ -367,12 +365,63 @@ const AdminDashboard = () => {
       days.push(d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
     }
 
-    // Aggregate orders and revenue by day for the last 7 days
-    if (Array.isArray(analyticsData.allOrders)) {
-      analyticsData.allOrders.forEach(order => {
-        if (!order.createdAt) return;
+    // Calculate distributions from actual orders data
+    const orderStatusCounts = {
+      pending: 0,
+      confirmed: 0,
+      shipped: 0,
+      delivered: 0,
+      cancelled: 0
+    };
+
+    const paymentStatusCounts = {
+      pending: 0,
+      completed: 0,
+      failed: 0,
+      processing: 0,
+      refunded: 0
+    };
+
+    // Use allOrders if available, fallback to current orders
+    const ordersToAnalyze = analyticsData.allOrders || orders || [];
+    console.log('📋 Analyzing orders for charts:', ordersToAnalyze.length, 'orders');
+
+    ordersToAnalyze.forEach(order => {
+      // Count order statuses
+      const orderStatus = (order.status || order.orderStatus || 'pending').toLowerCase();
+      if (orderStatusCounts.hasOwnProperty(orderStatus)) {
+        orderStatusCounts[orderStatus]++;
+      } else {
+        orderStatusCounts.pending++; // Default to pending for unknown statuses
+      }
+
+      // Count payment statuses
+      const paymentMethod = (order.paymentMethod || order.payment_method || '').toLowerCase();
+      let paymentStatus = (order.paymentStatus || order.payment_status || 'pending').toLowerCase();
+      
+      // Handle cash payments - they're always considered completed
+      if (paymentMethod === 'cash' || paymentMethod === 'cod') {
+        paymentStatus = 'completed';
+      }
+      
+      // Map various payment statuses to our categories
+      if (paymentStatus === 'paid' || paymentStatus === 'success' || paymentStatus === 'verified') {
+        paymentStatusCounts.completed++;
+      } else if (paymentStatus === 'completed') {
+        paymentStatusCounts.completed++;
+      } else if (paymentStatus === 'failed' || paymentStatus === 'error') {
+        paymentStatusCounts.failed++;
+      } else if (paymentStatus === 'processing') {
+        paymentStatusCounts.processing++;
+      } else if (paymentStatus === 'refunded') {
+        paymentStatusCounts.refunded++;
+      } else {
+        paymentStatusCounts.pending++; // Default to pending
+      }
+
+      // Aggregate daily data for revenue and order trends
+      if (order.createdAt) {
         const orderDate = new Date(order.createdAt);
-        // Find the index in the last 7 days
         for (let i = 0; i < 7; i++) {
           const d = new Date(today);
           d.setDate(today.getDate() - (6 - i));
@@ -386,8 +435,11 @@ const AdminDashboard = () => {
             break;
           }
         }
-      });
-    }
+      }
+    });
+
+    console.log('📊 Order status distribution:', orderStatusCounts);
+    console.log('💳 Payment status distribution:', paymentStatusCounts);
 
     // Revenue Trend Chart (last 7 days)
     const revenueTrendData = {
@@ -419,11 +471,11 @@ const AdminDashboard = () => {
       labels: ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'],
       datasets: [{
         data: [
-          orders.pending || 0,
-          orders.confirmed || 0,
-          orders.shipped || 0,
-          orders.delivered || 0,
-          orders.cancelled || 0
+          orderStatusCounts.pending,
+          orderStatusCounts.confirmed,
+          orderStatusCounts.shipped,
+          orderStatusCounts.delivered,
+          orderStatusCounts.cancelled
         ],
         backgroundColor: [
           '#FF9800', // Orange for pending
@@ -442,11 +494,11 @@ const AdminDashboard = () => {
       labels: ['Pending', 'Completed', 'Failed', 'Processing', 'Refunded'],
       datasets: [{
         data: [
-          payments.pending || 0,
-          payments.completed || 0,
-          payments.failed || 0,
-          payments.processing || 0,
-          payments.refunded || 0
+          paymentStatusCounts.pending,
+          paymentStatusCounts.completed,
+          paymentStatusCounts.failed,
+          paymentStatusCounts.processing,
+          paymentStatusCounts.refunded
         ],
         backgroundColor: [
           '#FF9800', // Orange for pending
@@ -470,39 +522,78 @@ const AdminDashboard = () => {
 
   const loadAnalytics = async () => {
     try {
+      console.log("📊 Loading analytics data...");
       const response = await apiService.getAnalytics();
       let allOrders = [];
+      
       if (response.success && response.data) {
+        console.log("✅ Primary analytics API response:", response.data);
+        
         // Use the correct data structure from the analytics response
-        const summary = response.data.summary || {};
+        const summary = response.data.summary || response.data;
         const orders = response.data.orders || {};
-        setTotalRevenue(summary.totalRevenue || 0);
-        setTotalPendingOrders(summary.pendingOrders || orders.pending || 0);
-        setTotalOrderCount(summary.totalOrders || orders.total || 0);
+        
+        // Handle the data structure you provided: { totalRevenue, pendingOrders, totalOrders }
+        const totalRevenue = summary.totalRevenue || response.data.totalRevenue || 0;
+        const pendingOrders = summary.pendingOrders || orders.pending || response.data.pendingOrders || 0;
+        const totalOrders = summary.totalOrders || orders.total || response.data.totalOrders || 0;
+        
+        console.log("📈 Setting analytics values:", { totalRevenue, pendingOrders, totalOrders });
+        
+        setTotalRevenue(totalRevenue);
+        setTotalPendingOrders(pendingOrders);
+        setTotalOrderCount(totalOrders);
+        
         // Fetch all orders for daily aggregation
         const allOrdersResp = await apiService.getAllOrders(1, 1000, 'createdAt', 'desc');
         if (allOrdersResp.success && allOrdersResp.data?.results) {
           allOrders = allOrdersResp.data.results;
         }
+        
         // Prepare chart data with allOrders
         prepareChartData({ ...response.data, allOrders });
       } else {
         // If analytics API failed, try fallback method
-        console.log('Analytics API failed, trying fallback method...');
+        console.log("⚠️ Analytics API failed, trying fallback method...");
         const fallbackResponse = await apiService.getAnalyticsFromOrders();
+        
         if (fallbackResponse.success && fallbackResponse.data) {
-          console.log('Fallback analytics data:', fallbackResponse.data);
-          setTotalRevenue(fallbackResponse.data.totalRevenue || 0);
-          setTotalPendingOrders(fallbackResponse.data.pendingOrders || 0);
-          if (fallbackResponse.data.totalOrders) {
-            setTotalOrderCount(fallbackResponse.data.totalOrders);
+          console.log("✅ Fallback analytics data:", fallbackResponse.data);
+          
+          const { totalRevenue, pendingOrders, totalOrders } = fallbackResponse.data;
+          setTotalRevenue(totalRevenue || 0);
+          setTotalPendingOrders(pendingOrders || 0);
+          setTotalOrderCount(totalOrders || 0);
+          
+          // Also try to get all orders for chart data
+          try {
+            const allOrdersResp = await apiService.getAllOrders(1, 1000, 'createdAt', 'desc');
+            if (allOrdersResp.success && allOrdersResp.data?.results) {
+              allOrders = allOrdersResp.data.results;
+              prepareChartData({ ...fallbackResponse.data, allOrders });
+            }
+          } catch (orderError) {
+            console.warn("Could not fetch orders for chart data:", orderError);
+            // Use current orders as fallback
+            prepareChartData({ allOrders: orders });
           }
+        } else {
+          console.error("❌ Both primary and fallback analytics failed");
+          // Set default values and prepare charts with current orders
+          setTotalRevenue(0);
+          setTotalPendingOrders(0);
+          setTotalOrderCount(0);
+          prepareChartData({ allOrders: orders });
         }
       }
     } catch (error) {
-      console.error('Failed to load analytics:', error);
-      // If analytics fails, we'll rely on pagination data for order count
-      // Don't throw error, just log it and continue
+      console.error("❌ Failed to load analytics:", error);
+      // Set default values on complete failure but still try to prepare charts
+      setTotalRevenue(0);
+      setTotalPendingOrders(0);
+      setTotalOrderCount(0);
+      // Use current orders for chart data as last resort
+      prepareChartData({ allOrders: orders });
     }
   };
 
@@ -953,6 +1044,14 @@ const AdminDashboard = () => {
   useEffect(() => {
     setReviewChartData(prepareReviewChartData());
   }, [reviews, prepareReviewChartData]);
+
+  // Update charts when orders data changes
+  useEffect(() => {
+    if (orders.length > 0) {
+      console.log('🔄 Orders data changed, updating charts with', orders.length, 'orders');
+      prepareChartData({ allOrders: orders });
+    }
+  }, [orders]);
 
   const AnalyticsCards = () => (
     <Grid container spacing={3} sx={{ mb: 3 }}>
