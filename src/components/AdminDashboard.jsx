@@ -354,14 +354,18 @@ const AdminDashboard = () => {
   const prepareChartData = (analyticsData) => {
     console.log('📊 Preparing chart data with:', analyticsData);
     
-    // Generate last 7 days labels and initialize daily data
-    const days = [];
-    const dailyRevenue = Array(7).fill(0);
-    const dailyOrders = Array(7).fill(0);
+    // Generate dates from July 12, 2025 to today
+    const startDate = new Date(2025, 6, 12); // July 12, 2025 (month is 0-indexed)
     const today = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
+    const daysDiff = Math.ceil((today - startDate) / (1000 * 60 * 60 * 24)) + 1; // +1 to include start date
+    
+    const days = [];
+    const dailyRevenue = Array(daysDiff).fill(0);
+    const dailyOrders = Array(daysDiff).fill(0);
+    
+    for (let i = 0; i < daysDiff; i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
       days.push(d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
     }
 
@@ -422,9 +426,9 @@ const AdminDashboard = () => {
       // Aggregate daily data for revenue and order trends
       if (order.createdAt) {
         const orderDate = new Date(order.createdAt);
-        for (let i = 0; i < 7; i++) {
-          const d = new Date(today);
-          d.setDate(today.getDate() - (6 - i));
+        for (let i = 0; i < daysDiff; i++) {
+          const d = new Date(startDate);
+          d.setDate(startDate.getDate() + i);
           if (
             orderDate.getFullYear() === d.getFullYear() &&
             orderDate.getMonth() === d.getMonth() &&
@@ -441,7 +445,7 @@ const AdminDashboard = () => {
     console.log('📊 Order status distribution:', orderStatusCounts);
     console.log('💳 Payment status distribution:', paymentStatusCounts);
 
-    // Revenue Trend Chart (last 7 days)
+    // Revenue Trend Chart (from July 12, 2025)
     const revenueTrendData = {
       labels: days,
       datasets: [{
@@ -454,7 +458,7 @@ const AdminDashboard = () => {
       }]
     };
 
-    // Orders Over Time Chart (last 7 days)
+    // Orders Over Time Chart (from July 12, 2025)
     const ordersOverTimeData = {
       labels: days,
       datasets: [{
