@@ -243,13 +243,13 @@ const AdminDashboard = () => {
   const loadUsers = async () => {
     try {
       const response = await apiService.getAllUsers();
-      if (response.success && Array.isArray(response.users)) {
-        setUsers(response.users);
+      // Fix: extract users from response.data.users
+      if (response.success && Array.isArray(response.data?.users)) {
+        setUsers(response.data.users);
       } else {
         setUsers([]);
       }
     } catch (error) {
-      // Set empty users array if endpoint fails
       setUsers([]);
     }
   };
