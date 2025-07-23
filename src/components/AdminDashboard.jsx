@@ -1298,7 +1298,7 @@ const AdminDashboard = () => {
                     scales: {
                       y: {
                         beginAtZero: true,
-                        max: 6000000, // Set max to 6 million
+                        max: 2000000, // Set max to 6 million
                         ticks: {
                           callback: function(value) {
                             return formatPrice(value);
